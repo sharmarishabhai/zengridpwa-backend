@@ -1,5 +1,9 @@
 const Lead = require("../models/Lead");
 const FollowUp = require("../models/FollowUp");
+const Meeting = require("../models/Meeting");
+const Quote = require("../models/Quote");
+const Payment = require("../models/Payment");
+const GstInvoice = require("../models/GstInvoice");
 const { ROLES } = require("../utils/constants");
 const { LEAD_STATUSES, MEETING_STATUSES, SOURCES } = require("../utils/leadConstants");
 const { logAudit } = require("../utils/audit");
@@ -170,6 +174,10 @@ async function deleteLead(req, res) {
   const before = lead.toJSON();
   await Lead.deleteOne({ _id: lead._id });
   await FollowUp.deleteMany({ leadId: lead._id });
+  await Meeting.deleteMany({ leadId: lead._id });
+  await Quote.deleteMany({ leadId: lead._id });
+  await Payment.deleteMany({ leadId: lead._id });
+  await GstInvoice.deleteMany({ leadId: lead._id });
 
   await logAudit({
     action: "lead.delete",
