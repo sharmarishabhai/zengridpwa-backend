@@ -1,10 +1,19 @@
-const Lead = require("../models/Lead");
+﻿const Lead = require("../models/Lead");
 const Meeting = require("../models/Meeting");
 const Quote = require("../models/Quote");
 const Payment = require("../models/Payment");
 const GstInvoice = require("../models/GstInvoice");
 const { ROLES } = require("../utils/constants");
 const { MEETING_STATUSES, LEAD_STATUSES } = require("../utils/leadConstants");
+const mongoose = require("mongoose");
+
+function ensureValidLeadId(leadId, res) {
+  if (!mongoose.Types.ObjectId.isValid(leadId)) {
+    res.status(400).json({ success: false, message: "Invalid leadId" });
+    return false;
+  }
+  return true;
+}
 
 function makeNo(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -18,6 +27,7 @@ function roleQuery(user) {
 }
 
 async function addMeeting(req, res) {
+  if (!ensureValidLeadId(req.params.leadId, res)) return;
   const lead = await Lead.findById(req.params.leadId);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const { meetingDate, meetingTime = "", note = "", meetingStatus = MEETING_STATUSES.ASSIGNED } = req.body;
@@ -51,6 +61,7 @@ async function listMeetings(req, res) {
 }
 
 async function updateMeetingDone(req, res) {
+  if (!ensureValidLeadId(req.params.leadId, res)) return;
   const lead = await Lead.findById(req.params.leadId);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const { outcome, remarks = "", followUpDate = "" } = req.body;
@@ -78,6 +89,7 @@ async function updateMeetingDone(req, res) {
 }
 
 async function addQuote(req, res) {
+  if (!ensureValidLeadId(req.params.leadId, res)) return;
   const lead = await Lead.findById(req.params.leadId);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const quote = await Quote.create({
@@ -117,6 +129,7 @@ async function listQuotes(req, res) {
 }
 
 async function addPayment(req, res) {
+  if (!ensureValidLeadId(req.params.leadId, res)) return;
   const lead = await Lead.findById(req.params.leadId);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const totalAmount = Number(req.body.totalAmount || 0);
@@ -148,6 +161,7 @@ async function listPayments(req, res) {
 }
 
 async function addGstInvoice(req, res) {
+  if (!ensureValidLeadId(req.params.leadId, res)) return;
   const lead = await Lead.findById(req.params.leadId);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const invoice = await GstInvoice.create({
@@ -213,3 +227,4 @@ module.exports = {
   listGstInvoices,
   dashboardSummary,
 };
+
