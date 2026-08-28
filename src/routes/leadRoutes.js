@@ -10,6 +10,7 @@ const {
   updateLead,
   assignLead,
   updateLeadStatus,
+  deleteLead,
   leadSummary,
   bulkImportLeads,
   searchLeads,
@@ -27,5 +28,6 @@ router.get("/:id", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), as
 router.patch("/:id", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(updateLead));
 router.patch("/:id/assign", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(assignLead));
 router.patch("/:id/status", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(updateLeadStatus));
+router.delete("/:id", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(deleteLead));
 
 module.exports = router;

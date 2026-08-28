@@ -163,6 +163,27 @@ async function updateLeadStatus(req, res) {
   return res.json({ success: true, lead });
 }
 
+async function deleteLead(req, res) {
+  const lead = await Lead.findById(req.params.id);
+  if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+
+  const before = lead.toJSON();
+  await Lead.deleteOne({ _id: lead._id });
+  await FollowUp.deleteMany({ leadId: lead._id });
+
+  await logAudit({
+    action: "lead.delete",
+    entityType: "Lead",
+    entityId: lead._id,
+    message: `Lead deleted: ${lead.customerName}`,
+    before,
+    actorUserId: req.user._id,
+    actorRole: req.user.userType,
+  });
+
+  return res.json({ success: true, message: "Lead deleted" });
+}
+
 async function bulkImportLeads(req, res) {
   const leads = Array.isArray(req.body.leads) ? req.body.leads : [];
   if (!leads.length) return res.status(400).json({ success: false, message: "leads array is required" });
@@ -235,6 +256,7 @@ module.exports = {
   updateLead,
   assignLead,
   updateLeadStatus,
+  deleteLead,
   leadSummary,
   bulkImportLeads,
   searchLeads,
