@@ -4,6 +4,7 @@ const Meeting = require("../models/Meeting");
 const Quote = require("../models/Quote");
 const Payment = require("../models/Payment");
 const GstInvoice = require("../models/GstInvoice");
+const User = require("../models/User");
 const { ROLES } = require("../utils/constants");
 const { LEAD_STATUSES, MEETING_STATUSES, SOURCES } = require("../utils/leadConstants");
 const { logAudit } = require("../utils/audit");
@@ -12,6 +13,9 @@ function toLeadPayload(body) {
   return {
     customerName: body.customerName || body.Name || "",
     phone: body.phone || body.Phone || "",
+    whatsappNumber: body.whatsappNumber || body.WhatsApp || body.whatsapp || "",
+    email: body.email || body.Email || "",
+    address: body.address || body.Address || "",
     area: body.area || body.Area || "",
     locality: body.locality || body.Locality || "",
     monthlyBill: Number(body.monthlyBill || body.Bill || 0),
@@ -29,6 +33,15 @@ function toLeadPayload(body) {
   };
 }
 
+async function makeLeadId() {
+  for (let i = 0; i < 12; i += 1) {
+    const leadId = `ZN${Math.floor(100000 + Math.random() * 900000)}`;
+    const exists = await Lead.exists({ leadId });
+    if (!exists) return leadId;
+  }
+  return `ZN${Date.now().toString().slice(-6)}`;
+}
+
 function canSeeLead(user, lead) {
   if (user.userType === ROLES.ADMIN) return true;
   if (user.userType === ROLES.LRM) return String(lead.assignedByUserId || "") === String(user._id) || String(lead.createdByUserId || "") === String(user._id);
@@ -42,6 +55,30 @@ async function createLead(req, res) {
     return res.status(400).json({ success: false, message: "customerName and phone are required" });
   }
 
+  let assignedByUser = null;
+  let assignedToUser = null;
+
+  if (req.user.userType === ROLES.ADMIN) {
+    if (!payload.assignedByUserId) {
+      return res.status(400).json({ success: false, message: "assignedByUserId LRM is required" });
+    }
+    assignedByUser = await User.findById(payload.assignedByUserId);
+    if (!assignedByUser || assignedByUser.userType !== ROLES.LRM) {
+      return res.status(400).json({ success: false, message: "Assigned By must be an LRM user" });
+    }
+  }
+
+  if (req.user.userType === ROLES.LRM) {
+    assignedByUser = req.user;
+  }
+
+  if (payload.assignedToUserId) {
+    assignedToUser = await User.findById(payload.assignedToUserId);
+    if (!assignedToUser || assignedToUser.userType !== ROLES.SC) {
+      return res.status(400).json({ success: false, message: "Assigned To must be an SC user" });
+    }
+  }
+
   const existing = await Lead.findOne({ phone: payload.phone });
   if (existing) {
     return res.status(409).json({ success: false, message: "phone already exists" });
@@ -49,6 +86,11 @@ async function createLead(req, res) {
 
   const lead = await Lead.create({
     ...payload,
+    assignedBy: assignedByUser ? `${assignedByUser.firstName} ${assignedByUser.lastName}`.trim() : payload.assignedBy,
+    assignedByUserId: assignedByUser?._id || payload.assignedByUserId || null,
+    assignedTo: assignedToUser ? `${assignedToUser.firstName} ${assignedToUser.lastName}`.trim() : "",
+    assignedToUserId: assignedToUser?._id || null,
+    leadId: await makeLeadId(),
     createdByRole: req.user.userType,
     createdByUserId: req.user._id,
     updatedByUserId: req.user._id,
@@ -71,6 +113,7 @@ async function listLeads(req, res) {
   let filter = {};
   if (req.user.userType === ROLES.LRM) filter = { assignedByUserId: req.user._id };
   if (req.user.userType === ROLES.SC) filter = { assignedToUserId: req.user._id };
+  if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const leads = await Lead.find(filter).sort({ createdAt: -1 });
   return res.json({ success: true, leads });
 }
@@ -121,8 +164,16 @@ async function assignLead(req, res) {
   if (!assignedTo && !assignedToUserId) {
     return res.status(400).json({ success: false, message: "assignedTo or assignedToUserId is required" });
   }
-  lead.assignedTo = assignedTo || lead.assignedTo;
-  lead.assignedToUserId = assignedToUserId || lead.assignedToUserId;
+  if (assignedToUserId) {
+    const assignee = await require("../models/User").findById(assignedToUserId);
+    if (!assignee || assignee.userType !== ROLES.SC) {
+      return res.status(400).json({ success: false, message: "Lead can only be assigned to an SC user" });
+    }
+    lead.assignedTo = `${assignee.firstName} ${assignee.lastName}`.trim();
+    lead.assignedToUserId = assignee._id;
+  } else {
+    lead.assignedTo = assignedTo || lead.assignedTo;
+  }
   lead.assignedBy = `${req.user.firstName} ${req.user.lastName}`.trim();
   lead.assignedByUserId = req.user._id;
   if (meetingDate !== undefined) lead.meetingDate = meetingDate;
@@ -148,6 +199,7 @@ async function updateLeadStatus(req, res) {
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const before = lead.toJSON();
   const { leadStatus, meetingStatus, followUpDate, note } = req.body;
+  if (!canSeeLead(req.user, lead)) return res.status(403).json({ success: false, message: "Forbidden" });
   if (leadStatus) lead.leadStatus = leadStatus;
   if (meetingStatus) lead.meetingStatus = meetingStatus;
   if (followUpDate !== undefined) lead.followUpDate = followUpDate;
@@ -210,6 +262,7 @@ async function bulkImportLeads(req, res) {
       createdByRole: req.user.userType,
       createdByUserId: req.user._id,
       updatedByUserId: req.user._id,
+      leadId: `ZN${Math.floor(100000 + Math.random() * 900000)}`,
     })),
     { ordered: false }
   ).catch(() => []);
@@ -228,11 +281,11 @@ async function searchLeads(req, res) {
   if (!q) return res.json({ success: true, leads: [] });
   const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
   const filter = req.user.userType === ROLES.ADMIN
-    ? { $or: [{ customerName: regex }, { phone: regex }, { area: regex }, { locality: regex }] }
+    ? { $or: [{ customerName: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }] }
     : {
         $and: [
           req.user.userType === ROLES.LRM ? { assignedByUserId: req.user._id } : { assignedToUserId: req.user._id },
-          { $or: [{ customerName: regex }, { phone: regex }, { area: regex }, { locality: regex }] },
+          { $or: [{ customerName: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }] },
         ],
       };
   const leads = await Lead.find(filter).sort({ createdAt: -1 }).limit(100);

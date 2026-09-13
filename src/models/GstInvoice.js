@@ -6,6 +6,8 @@ const gstInvoiceSchema = new mongoose.Schema(
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: "Lead", required: true, index: true },
     leadName: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true, index: true },
+    whatsappNumber: { type: String, trim: true, default: "" },
+    email: { type: String, trim: true, lowercase: true, default: "" },
     customerName: { type: String, default: "" },
     customerGSTIN: { type: String, default: "" },
     customerPAN: { type: String, default: "" },

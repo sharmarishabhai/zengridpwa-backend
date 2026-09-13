@@ -7,6 +7,7 @@ const followUpRoutes = require("./followUpRoutes");
 const activityRoutes = require("./activityRoutes");
 const auditRoutes = require("./auditRoutes");
 const mediaRoutes = require("./mediaRoutes");
+const configRoutes = require("./configRoutes");
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.use("/followups", followUpRoutes);
 router.use("/activities", activityRoutes);
 router.use("/audits", auditRoutes);
 router.use("/media", mediaRoutes);
+router.use("/config", configRoutes);
 
 module.exports = router;

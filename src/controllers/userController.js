@@ -20,7 +20,7 @@ async function createTeamUser(req, res) {
 }
 
 async function listUsers(req, res) {
-  const users = await User.find({ createdBy: req.user._id }).sort({ createdAt: -1 });
+  const users = await User.find({ userType: { $in: [ROLES.LRM, ROLES.SC] } }).sort({ userType: 1, createdAt: -1 });
   return res.json({ success: true, users });
 }
 
@@ -80,6 +80,10 @@ async function updateUser(req, res) {
   allowed.forEach((field) => {
     if (req.body[field] !== undefined) user[field] = req.body[field];
   });
+
+  if (![ROLES.LRM, ROLES.SC].includes(user.userType)) {
+    return res.status(400).json({ success: false, message: "Only lrm or sc can be managed here" });
+  }
 
   await user.save();
   return res.json({ success: true, user });
