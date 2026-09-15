@@ -33,6 +33,21 @@ function toLeadPayload(body) {
   };
 }
 
+function paginationOptions(query) {
+  const page = Math.max(1, Number(query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(query.limit || 25)));
+  return { page, limit, skip: (page - 1) * limit };
+}
+
+function paginationMeta(total, page, limit) {
+  return {
+    total,
+    page,
+    limit,
+    pages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
 async function makeLeadId() {
   for (let i = 0; i < 12; i += 1) {
     const leadId = `ZN${Math.floor(100000 + Math.random() * 900000)}`;
@@ -110,17 +125,25 @@ async function createLead(req, res) {
 }
 
 async function listLeads(req, res) {
+  const { page, limit, skip } = paginationOptions(req.query);
   let filter = {};
   if (req.user.userType === ROLES.LRM) filter = { assignedByUserId: req.user._id };
   if (req.user.userType === ROLES.SC) filter = { assignedToUserId: req.user._id };
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
-  const leads = await Lead.find(filter).sort({ createdAt: -1 });
-  return res.json({ success: true, leads });
+  const [leads, total] = await Promise.all([
+    Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Lead.countDocuments(filter),
+  ]);
+  return res.json({ success: true, leads, pagination: paginationMeta(total, page, limit) });
 }
 
 async function listAllLeads(req, res) {
-  const leads = await Lead.find({}).sort({ createdAt: -1 });
-  return res.json({ success: true, leads });
+  const { page, limit, skip } = paginationOptions(req.query);
+  const [leads, total] = await Promise.all([
+    Lead.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Lead.countDocuments({}),
+  ]);
+  return res.json({ success: true, leads, pagination: paginationMeta(total, page, limit) });
 }
 
 async function getLeadById(req, res) {

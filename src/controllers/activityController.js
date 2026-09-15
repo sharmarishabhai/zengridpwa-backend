@@ -37,6 +37,21 @@ function scopedQuery(user, extra = {}) {
   return { ...roleQuery(user), ...extra };
 }
 
+function paginationOptions(query) {
+  const page = Math.max(1, Number(query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(query.limit || 25)));
+  return { page, limit, skip: (page - 1) * limit };
+}
+
+function paginationMeta(total, page, limit) {
+  return {
+    total,
+    page,
+    limit,
+    pages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
 function canUseLead(user, lead) {
   if (user.userType === ROLES.ADMIN) return true;
   if (user.userType === ROLES.LRM) {
@@ -198,8 +213,13 @@ async function addQuote(req, res) {
 }
 
 async function listQuotes(req, res) {
-  const quotes = await Quote.find(roleQuery(req.user)).sort({ createdAt: -1 }).limit(500);
-  return res.json({ success: true, quotes });
+  const { page, limit, skip } = paginationOptions(req.query);
+  const filter = roleQuery(req.user);
+  const [quotes, total] = await Promise.all([
+    Quote.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Quote.countDocuments(filter),
+  ]);
+  return res.json({ success: true, quotes, pagination: paginationMeta(total, page, limit) });
 }
 
 async function addPayment(req, res) {
@@ -233,8 +253,13 @@ async function addPayment(req, res) {
 }
 
 async function listPayments(req, res) {
-  const payments = await Payment.find(roleQuery(req.user)).sort({ paymentDate: -1, createdAt: -1 }).limit(500);
-  return res.json({ success: true, payments });
+  const { page, limit, skip } = paginationOptions(req.query);
+  const filter = roleQuery(req.user);
+  const [payments, total] = await Promise.all([
+    Payment.find(filter).sort({ paymentDate: -1, createdAt: -1 }).skip(skip).limit(limit),
+    Payment.countDocuments(filter),
+  ]);
+  return res.json({ success: true, payments, pagination: paginationMeta(total, page, limit) });
 }
 
 async function addGstInvoice(req, res) {
@@ -266,8 +291,13 @@ async function addGstInvoice(req, res) {
 }
 
 async function listGstInvoices(req, res) {
-  const invoices = await GstInvoice.find(roleQuery(req.user)).sort({ createdAt: -1 }).limit(500);
-  return res.json({ success: true, invoices });
+  const { page, limit, skip } = paginationOptions(req.query);
+  const filter = roleQuery(req.user);
+  const [invoices, total] = await Promise.all([
+    GstInvoice.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    GstInvoice.countDocuments(filter),
+  ]);
+  return res.json({ success: true, invoices, pagination: paginationMeta(total, page, limit) });
 }
 
 async function dashboardSummary(req, res) {
