@@ -139,11 +139,27 @@ async function listLeads(req, res) {
 
 async function listAllLeads(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
+  const filter = buildLeadFilter(req.query);
   const [leads, total] = await Promise.all([
-    Lead.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit),
-    Lead.countDocuments({}),
+    Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Lead.countDocuments(filter),
   ]);
   return res.json({ success: true, leads, pagination: paginationMeta(total, page, limit) });
+}
+
+function buildLeadFilter(query = {}) {
+  const filter = {};
+  const exact = { leadStatus: "status", source: "source", assignedToUserId: "assignedToUserId", assignedByUserId: "assignedByUserId", meetingStatus: "meetingStatus" };
+  Object.entries(exact).forEach(([field, key]) => { if (query[key]) filter[field] = query[key]; });
+  if (query.hasMeeting === "true") filter.meetingDate = { $nin: [null, ""] };
+  if (query.hasFollowUp === "true") filter.followUpDate = { $nin: [null, ""] };
+  if (query.meetingDateFrom || query.meetingDateTo) filter.meetingDate = { ...(filter.meetingDate || {}), ...(query.meetingDateFrom ? { $gte: query.meetingDateFrom } : {}), ...(query.meetingDateTo ? { $lte: query.meetingDateTo } : {}) };
+  if (query.followUpDateFrom || query.followUpDateTo) filter.followUpDate = { ...(filter.followUpDate || {}), ...(query.followUpDateFrom ? { $gte: query.followUpDateFrom } : {}), ...(query.followUpDateTo ? { $lte: query.followUpDateTo } : {}) };
+  if (query.q) {
+    const regex = new RegExp(String(query.q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [{ customerName: regex }, { leadId: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }];
+  }
+  return filter;
 }
 
 async function getLeadById(req, res) {

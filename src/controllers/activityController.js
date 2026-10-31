@@ -26,6 +26,17 @@ function makeNo(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
+async function makeInvoiceNo() {
+  const year = new Date().getFullYear();
+  const prefix = `ZGS-INV-${year}-`;
+  const last = await GstInvoice.findOne({ invoiceNo: new RegExp(`^${prefix}\\d{3}$`) })
+    .sort({ invoiceNo: -1 })
+    .select("invoiceNo")
+    .lean();
+  const previous = last ? Number(String(last.invoiceNo).slice(-3)) : 0;
+  return `${prefix}${String(previous + 1).padStart(3, "0")}`;
+}
+
 function roleQuery(user) {
   if (user.userType === ROLES.ADMIN) return {};
   if (user.userType === ROLES.LRM) return { assignedByUserId: user._id };
@@ -268,7 +279,7 @@ async function addGstInvoice(req, res) {
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   if (!canUseLead(req.user, lead)) return res.status(403).json({ success: false, message: "Forbidden" });
   const invoice = await GstInvoice.create({
-    invoiceNo: makeNo("GST"),
+    invoiceNo: await makeInvoiceNo(),
     leadId: lead._id,
     leadName: lead.customerName,
     phone: lead.phone,
