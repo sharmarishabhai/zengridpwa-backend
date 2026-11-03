@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "import:legacy-sheet": "node scripts/importLegacySheet.js",
+    "import:plant-locations": "node scripts/importPlantLocations.js",
     "lint": "echo \"Add linting config if needed\""
   },
   "keywords": [

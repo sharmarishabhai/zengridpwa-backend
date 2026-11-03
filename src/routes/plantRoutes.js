@@ -1,0 +1,10 @@
+const express = require("express");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const asyncHandler = require("../middleware/asyncHandler");
+const { ROLES } = require("../utils/constants");
+const { listPlants, upsertPlant, deletePlant } = require("../controllers/plantController");
+const router = express.Router();
+router.get("/", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(listPlants));
+router.post("/", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(upsertPlant));
+router.delete("/:id", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(deletePlant));
+module.exports = router;
