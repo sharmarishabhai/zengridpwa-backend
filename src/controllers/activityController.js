@@ -406,7 +406,7 @@ async function teamPerformance(req, res) {
     const scKey = String(lead.assignedToUserId || lead.assignedTo || "unassigned");
     const lrmKey = String(lead.assignedByUserId || lead.assignedBy || "unassigned");
     if (!scMap.has(scKey)) scMap.set(scKey, { name: lead.assignedTo || "Unassigned", totalAssigned: 0, meetingsDone: 0, ordersClosed: 0 });
-    if (!lrmMap.has(lrmKey)) lrmMap.set(lrmKey, { name: lead.assignedBy || "Unassigned", totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
+    if (!lrmMap.has(lrmKey)) lrmMap.set(lrmKey, { userId: lead.assignedByUserId || null, name: lead.assignedBy || "Unassigned", totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
     const sc = scMap.get(scKey);
     sc.totalAssigned += 1;
     if (lead.meetingStatus === MEETING_STATUSES.DONE) sc.meetingsDone += 1;
@@ -418,7 +418,7 @@ async function teamPerformance(req, res) {
   });
   reports.forEach((report) => {
     const key = String(report.lrmUserId);
-    if (!lrmMap.has(key)) lrmMap.set(key, { name: report.lrmName, totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
+    if (!lrmMap.has(key)) lrmMap.set(key, { userId: report.lrmUserId, name: report.lrmName, totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
     const row = lrmMap.get(key);
     row.totalCalls += report.totalCalls;
     row.connectedCalls += report.connectedCalls;
