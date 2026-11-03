@@ -8,7 +8,8 @@ function canSeeLead(user, lead) {
 
 async function listPlants(req, res) {
   const plants = await Plant.find().populate({ path: "leadId", select: "customerName phone address area locality assignedToUserId" }).sort({ createdAt: -1 });
-  const visible = plants.filter((p) => p.leadId && canSeeLead(req.user, p.leadId));
+  // Installed plants are shared operational locations: every SC can view the full map.
+  const visible = plants.filter((p) => p.leadId);
   return res.json({ success: true, plants: visible });
 }
 
