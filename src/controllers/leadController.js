@@ -36,7 +36,7 @@ function toLeadPayload(body) {
 function paginationOptions(query) {
   const page = Math.max(1, Number(query.page || 1));
   // Lead workspaces load the complete operational list; keep pagination available for larger datasets.
-  const limit = Math.min(1000, Math.max(1, Number(query.limit || 25)));
+  const limit = Math.min(5000, Math.max(1, Number(query.limit || 25)));
   return { page, limit, skip: (page - 1) * limit };
 }
 
