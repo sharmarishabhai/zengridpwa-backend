@@ -35,7 +35,8 @@ function toLeadPayload(body) {
 
 function paginationOptions(query) {
   const page = Math.max(1, Number(query.page || 1));
-  const limit = Math.min(100, Math.max(1, Number(query.limit || 25)));
+  // Lead workspaces load the complete operational list; keep pagination available for larger datasets.
+  const limit = Math.min(1000, Math.max(1, Number(query.limit || 25)));
   return { page, limit, skip: (page - 1) * limit };
 }
 
@@ -327,7 +328,7 @@ async function searchLeads(req, res) {
           { $or: [{ customerName: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }] },
         ],
       };
-  const leads = await Lead.find(filter).sort({ createdAt: -1 }).limit(100).lean();
+  const leads = await Lead.find(filter).sort({ createdAt: -1 }).limit(1000).lean();
   return res.json({ success: true, leads });
 }
 
