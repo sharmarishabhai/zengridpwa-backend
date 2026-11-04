@@ -128,7 +128,8 @@ async function createLead(req, res) {
 async function listLeads(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
   let filter = {};
-  if (req.user.userType === ROLES.LRM) filter = { assignedByUserId: req.user._id };
+  // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
+  if (req.user.userType === ROLES.LRM) filter = {};
   if (req.user.userType === ROLES.SC) filter = { assignedToUserId: req.user._id };
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const [leads, total] = await Promise.all([
