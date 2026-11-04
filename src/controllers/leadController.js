@@ -131,7 +131,7 @@ async function listLeads(req, res) {
   if (req.user.userType === ROLES.SC) filter = { assignedToUserId: req.user._id };
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const [leads, total] = await Promise.all([
-    Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Lead.countDocuments(filter),
   ]);
   return res.json({ success: true, leads, pagination: paginationMeta(total, page, limit) });
@@ -141,7 +141,7 @@ async function listAllLeads(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
   const filter = buildLeadFilter(req.query);
   const [leads, total] = await Promise.all([
-    Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Lead.countDocuments(filter),
   ]);
   return res.json({ success: true, leads, pagination: paginationMeta(total, page, limit) });
@@ -163,7 +163,7 @@ function buildLeadFilter(query = {}) {
 }
 
 async function getLeadById(req, res) {
-  const lead = await Lead.findById(req.params.id);
+  const lead = await Lead.findById(req.params.id).lean();
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   if (!canSeeLead(req.user, lead)) return res.status(403).json({ success: false, message: "Forbidden" });
   return res.json({ success: true, lead });
@@ -327,7 +327,7 @@ async function searchLeads(req, res) {
           { $or: [{ customerName: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }] },
         ],
       };
-  const leads = await Lead.find(filter).sort({ createdAt: -1 }).limit(100);
+  const leads = await Lead.find(filter).sort({ createdAt: -1 }).limit(100).lean();
   return res.json({ success: true, leads });
 }
 
