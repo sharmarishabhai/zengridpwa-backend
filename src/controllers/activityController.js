@@ -313,48 +313,43 @@ async function listGstInvoices(req, res) {
 
 async function dashboardSummary(req, res) {
   const query = roleQuery(req.user);
-  const [leads, followUps, meetings, payments, quotes, invoices] = await Promise.all([
-    Lead.find(query).select("_id leadStatus followUpDate assignedTo assignedBy meetingStatus createdAt"),
-    require("../models/FollowUp").find(query).select("followUpDate"),
-    Meeting.find(query).select("meetingStatus meetingDate"),
-    Payment.find(query).select("paidAmount remainingAmount paymentDate leadName"),
-    Quote.find(query).select("_id createdAt"),
-    GstInvoice.find(query).select("_id createdAt"),
-  ]);
+  const FollowUp = require("../models/FollowUp");
   const today = new Date().toISOString().slice(0, 10);
-  const monthlyLeads = {};
-  const monthlyRevenue = {};
-  leads.forEach((l) => {
-    const key = new Date(l.createdAt).toISOString().slice(0, 7);
-    monthlyLeads[key] = (monthlyLeads[key] || 0) + 1;
-  });
-  payments.forEach((p) => {
-    const key = (p.paymentDate || "").slice(0, 7);
-    monthlyRevenue[key] = (monthlyRevenue[key] || 0) + Number(p.paidAmount || 0);
-  });
-  const leadStatus = leads.reduce((acc, lead) => {
-    acc[lead.leadStatus] = (acc[lead.leadStatus] || 0) + 1;
-    return acc;
-  }, {});
+
+  const [totalLeads, won, leadStatusRows, monthlyLeadRows, totalFollowUps, followUpsToday, overdueFollowUps, meetingsTotal, meetingsDone, totalQuotes, totalPayments, totalGstInvoices, paymentTotals, monthlyPaymentRows, recentPayments] = await Promise.all([
+    Lead.countDocuments(query),
+    Lead.countDocuments({ ...query, leadStatus: LEAD_STATUSES.WON }),
+    Lead.aggregate([{ $match: query }, { $group: { _id: "$leadStatus", count: { $sum: 1 } } }]),
+    Lead.aggregate([{ $match: query }, { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    FollowUp.countDocuments(query),
+    FollowUp.countDocuments({ ...query, followUpDate: today }),
+    FollowUp.countDocuments({ ...query, followUpDate: { $ne: "", $lt: today } }),
+    Meeting.countDocuments(query),
+    Meeting.countDocuments({ ...query, meetingStatus: MEETING_STATUSES.DONE }),
+    Quote.countDocuments(query),
+    Payment.countDocuments(query),
+    GstInvoice.countDocuments(query),
+    Payment.aggregate([{ $match: query }, { $group: { _id: null, revenueTotal: { $sum: "$paidAmount" }, pendingAmount: { $sum: "$remainingAmount" } } }]),
+    Payment.aggregate([{ $match: query }, { $group: { _id: { $substrBytes: ["$paymentDate", 0, 7] }, amount: { $sum: "$paidAmount" } } }, { $sort: { _id: 1 } }]),
+    Payment.find(query).sort({ paymentDate: -1, createdAt: -1 }).limit(5).select("paymentNo leadName paidAmount remainingAmount paymentDate").lean(),
+  ]);
+
+  const monthlyLeads = Object.fromEntries(monthlyLeadRows.map((row) => [row._id, row.count]));
+  const monthlyRevenue = Object.fromEntries(monthlyPaymentRows.filter((row) => row._id).map((row) => [row._id, row.amount]));
+  const leadStatus = Object.fromEntries(leadStatusRows.map((row) => [row._id, row.count]));
+  const totals = paymentTotals[0] || { revenueTotal: 0, pendingAmount: 0 };
   return res.json({
     success: true,
     summary: {
-      totalLeads: leads.length,
-      totalFollowUps: followUps.length,
-      followUpsToday: followUps.filter((f) => f.followUpDate === today).length,
-      overdueFollowUps: followUps.filter((f) => f.followUpDate && f.followUpDate < today).length,
-      meetingsTotal: meetings.length,
-      meetingsDone: meetings.filter((m) => m.meetingStatus === MEETING_STATUSES.DONE).length,
-      totalQuotes: quotes.length,
-      totalPayments: payments.length,
-      totalGstInvoices: invoices.length,
-      revenueTotal: payments.reduce((sum, p) => sum + Number(p.paidAmount || 0), 0),
-      pendingAmount: payments.reduce((sum, p) => sum + Number(p.remainingAmount || 0), 0),
-      won: leads.filter((l) => l.leadStatus === LEAD_STATUSES.WON).length,
+      totalLeads, totalFollowUps, followUpsToday, overdueFollowUps, meetingsTotal, meetingsDone,
+      totalQuotes, totalPayments, totalGstInvoices,
+      revenueTotal: totals.revenueTotal || 0,
+      pendingAmount: totals.pendingAmount || 0,
+      won,
       monthlyLeads,
       monthlyRevenue,
       leadStatus,
-      recentPayments: payments.slice(0, 5),
+      recentPayments,
     },
   });
 }
