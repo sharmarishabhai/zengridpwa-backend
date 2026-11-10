@@ -47,7 +47,9 @@ async function addFollowUp(req, res) {
 
 async function listFollowUps(req, res) {
   const query = {};
-  if (req.user.userType === ROLES.LRM) query.assignedByUserId = req.user._id;
+  if (req.user.userType === ROLES.LRM) {
+    query.$or = [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }];
+  }
   if (req.user.userType === ROLES.SC) query.assignedToUserId = req.user._id;
   const followUps = await FollowUp.find(query).sort({ followUpDate: 1, createdAt: -1 });
   return res.json({ success: true, followUps });

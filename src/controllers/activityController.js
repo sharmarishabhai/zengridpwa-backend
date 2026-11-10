@@ -39,7 +39,11 @@ async function makeInvoiceNo() {
 
 function roleQuery(user) {
   if (user.userType === ROLES.ADMIN) return {};
-  if (user.userType === ROLES.LRM) return { assignedByUserId: user._id };
+  // Older/imported leads may not have assignedByUserId populated. LRMs also
+  // own leads created directly from their workspace, so include both fields.
+  if (user.userType === ROLES.LRM) {
+    return { $or: [{ assignedByUserId: user._id }, { createdByUserId: user._id }] };
+  }
   if (user.userType === ROLES.SC) return { assignedToUserId: user._id };
   return { _id: null };
 }
