@@ -36,7 +36,7 @@ router.get("/quotes", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandl
 router.post("/payments/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(addPayment));
 router.get("/payments", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(listPayments));
 
-router.post("/gst/:leadId", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(addGstInvoice));
+router.post("/gst/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(addGstInvoice));
 router.get("/gst", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(listGstInvoices));
 
 module.exports = router;
