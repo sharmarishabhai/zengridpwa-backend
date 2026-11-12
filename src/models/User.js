@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema(
     phoneNumber: { type: String, required: true, trim: true, unique: true },
     alternateNumber: { type: String, trim: true, default: "" },
     email: { type: String, required: true, trim: true, lowercase: true, unique: true },
-    password: { type: String, required: true, minlength: 6, select: false },
+    password: { type: String, required: true, select: false },
     profileImage: { type: String, default: "" },
     userType: { type: String, enum: Object.values(ROLES), required: true },
     status: { type: String, enum: Object.values(STATUSES), default: STATUSES.ACTIVE },
