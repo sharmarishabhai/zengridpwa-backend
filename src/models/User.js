@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     alternateNumber: { type: String, trim: true, default: "" },
     email: { type: String, required: true, trim: true, lowercase: true, unique: true },
     password: { type: String, required: true, select: false },
+    sessionVersion: { type: Number, default: 0 },
     profileImage: { type: String, default: "" },
     userType: { type: String, enum: Object.values(ROLES), required: true },
     status: { type: String, enum: Object.values(STATUSES), default: STATUSES.ACTIVE },

@@ -21,6 +21,10 @@ async function protect(req, res, next) {
       return res.status(403).json({ success: false, message: "Account is not active" });
     }
 
+    if (Number(decoded.sessionVersion || 0) !== Number(user.sessionVersion || 0)) {
+      return res.status(401).json({ success: false, message: "Session expired on another device" });
+    }
+
     req.user = user;
     next();
   } catch (error) {

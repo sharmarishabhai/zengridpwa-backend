@@ -38,10 +38,11 @@ async function login(req, res) {
   }
 
   user.lastLoginAt = new Date();
+  user.sessionVersion = Number(user.sessionVersion || 0) + 1;
   await user.save();
 
-  const accessToken = signAccessToken({ id: user._id, role: user.userType });
-  const refreshToken = signRefreshToken({ id: user._id, role: user.userType });
+  const accessToken = signAccessToken({ id: user._id, role: user.userType, sessionVersion: user.sessionVersion });
+  const refreshToken = signRefreshToken({ id: user._id, role: user.userType, sessionVersion: user.sessionVersion });
   return res.json({
     success: true,
     accessToken,
@@ -73,7 +74,10 @@ async function refreshToken(req, res) {
       return res.status(403).json({ success: false, message: "Account is not active" });
     }
 
-    const accessToken = signAccessToken({ id: user._id, role: user.userType });
+    if (Number(decoded.sessionVersion || 0) !== Number(user.sessionVersion || 0)) {
+      return res.status(401).json({ success: false, message: "Session expired on another device" });
+    }
+    const accessToken = signAccessToken({ id: user._id, role: user.userType, sessionVersion: user.sessionVersion });
     return res.json({ success: true, accessToken });
   } catch (error) {
     return res.status(401).json({ success: false, message: "Invalid refresh token" });
