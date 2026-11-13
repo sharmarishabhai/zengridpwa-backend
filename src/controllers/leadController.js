@@ -130,7 +130,10 @@ async function listLeads(req, res) {
   let filter = {};
   // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
   if (req.user.userType === ROLES.LRM) filter = {};
-  if (req.user.userType === ROLES.SC) filter = { assignedToUserId: req.user._id };
+  if (req.user.userType === ROLES.SC) {
+    const fullName = `${req.user.firstName} ${req.user.lastName}`.trim();
+    filter = { $or: [{ assignedToUserId: req.user._id }, { assignedTo: new RegExp(`^${fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }] };
+  }
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const [leads, total] = await Promise.all([
     Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -213,7 +216,16 @@ async function assignLead(req, res) {
     lead.assignedTo = `${assignee.firstName} ${assignee.lastName}`.trim();
     lead.assignedToUserId = assignee._id;
   } else {
-    lead.assignedTo = assignedTo || lead.assignedTo;
+    const assignee = await User.findOne({
+      userType: ROLES.SC,
+      $expr: { $regexMatch: { input: { $trim: { input: { $concat: ["$firstName", " ", "$lastName"] } } }, regex: `^${String(assignedTo).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, options: "i" } },
+    });
+    if (assignee) {
+      lead.assignedTo = `${assignee.firstName} ${assignee.lastName}`.trim();
+      lead.assignedToUserId = assignee._id;
+    } else {
+      lead.assignedTo = assignedTo || lead.assignedTo;
+    }
   }
   lead.assignedBy = `${req.user.firstName} ${req.user.lastName}`.trim();
   lead.assignedByUserId = req.user._id;
