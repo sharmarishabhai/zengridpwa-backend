@@ -178,10 +178,12 @@ async function addQuote(req, res) {
   if (totalDiscount > price) return res.status(400).json({ success: false, message: "Discount cannot be more than system price" });
   const gstPercent = Number(req.body.gstPercent || 0);
   const netBeforeGst = Math.max(0, price - totalDiscount);
-  const gstAmount = Math.round((netBeforeGst * gstPercent) / 100);
+  // System price is GST-inclusive. Apply discounts first, then extract the
+  // GST component from the discounted inclusive net price; never add GST on top.
+  const gstAmount = Math.round((netBeforeGst * gstPercent) / (100 + gstPercent));
   const subsidy1 = Number(req.body.subsidy1 || 0);
   const subsidy2 = Number(req.body.subsidy2 || 0);
-  const netPrice = netBeforeGst + gstAmount;
+  const netPrice = netBeforeGst;
   const netEffectivePrice = Math.max(0, netPrice - subsidy1 - subsidy2);
   const quote = await Quote.create({
     quoteNo: makeNo("Q"),
