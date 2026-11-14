@@ -63,7 +63,7 @@ async function makeLeadId() {
 function canSeeLead(user, lead) {
   if (user.userType === ROLES.ADMIN) return true;
   if (user.userType === ROLES.LRM) return String(lead.lrmAssignedToUserId || lead.assignedByUserId || "") === String(user._id) || String(lead.createdByUserId || "") === String(user._id);
-  if (user.userType === ROLES.LRM_TL) return String(lead.lrmAssignedToUserId || "") === String(user._id);
+  if (user.userType === ROLES.LRM_TL) return true;
   if (user.userType === ROLES.SC) return String(lead.assignedToUserId || "") === String(user._id);
   return false;
 }
@@ -134,8 +134,7 @@ async function listLeads(req, res) {
   // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
   if (req.user.userType === ROLES.LRM) filter = { lrmAssignedToUserId: req.user._id };
   if (req.user.userType === ROLES.LRM_TL) {
-    const team = await User.find({ reportsToUserId: req.user._id }).select("_id").lean();
-    filter = { lrmAssignedToUserId: { $in: [req.user._id, ...team.map((u) => u._id)] } };
+    filter = {};
   }
   if (req.user.userType === ROLES.SC) {
     const fullName = `${req.user.firstName} ${req.user.lastName}`.trim();
