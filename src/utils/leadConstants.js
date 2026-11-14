@@ -24,4 +24,14 @@ const SOURCES = {
   IMPORT: "Import",
 };
 
-module.exports = { LEAD_STATUSES, MEETING_STATUSES, SOURCES };
+const LRM_LEAD_STATUSES = {
+  NEW: "New Lead",
+  CALLBACK: "Call Back",
+  HOT: "Hot",
+  AVERAGE: "Average",
+  COLD: "Cold",
+  JUNK: "Junk",
+  WON: "Won",
+};
+
+module.exports = { LEAD_STATUSES, LRM_LEAD_STATUSES, MEETING_STATUSES, SOURCES };

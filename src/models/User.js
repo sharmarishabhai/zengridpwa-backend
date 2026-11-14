@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
     userType: { type: String, enum: Object.values(ROLES), required: true },
     status: { type: String, enum: Object.values(STATUSES), default: STATUSES.ACTIVE },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reportsToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true }

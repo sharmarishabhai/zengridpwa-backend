@@ -4,10 +4,10 @@ const { ROLES } = require("../utils/constants");
 async function createTeamUser(req, res) {
   const { userType } = req.body;
 
-  if (![ROLES.LRM, ROLES.SC].includes(userType)) {
+  if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC].includes(userType)) {
     return res.status(400).json({
       success: false,
-      message: "Only lrm or sc can be created by admin",
+      message: "Only lrm, lrm_tl or sc can be created by admin",
     });
   }
 
@@ -20,15 +20,15 @@ async function createTeamUser(req, res) {
 }
 
 async function listUsers(req, res) {
-  const users = await User.find({ userType: { $in: [ROLES.LRM, ROLES.SC] } }).sort({ userType: 1, createdAt: -1 });
+  const users = await User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL, ROLES.SC] } }).sort({ userType: 1, createdAt: -1 });
   return res.json({ success: true, users });
 }
 
 async function listLrms(req, res) {
   const filter =
     req.user.userType === ROLES.ADMIN
-      ? { userType: ROLES.LRM }
-      : { userType: ROLES.LRM, createdBy: req.user._id };
+      ? { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] } }
+      : { userType: ROLES.LRM, reportsToUserId: req.user._id };
 
   const users = await User.find(filter).sort({ createdAt: -1 });
   return res.json({ success: true, users });
@@ -75,14 +75,15 @@ async function updateUser(req, res) {
     "userType",
     "status",
     "password",
+    "reportsToUserId",
   ];
 
   allowed.forEach((field) => {
     if (req.body[field] !== undefined) user[field] = req.body[field];
   });
 
-  if (![ROLES.LRM, ROLES.SC].includes(user.userType)) {
-    return res.status(400).json({ success: false, message: "Only lrm or sc can be managed here" });
+  if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC].includes(user.userType)) {
+    return res.status(400).json({ success: false, message: "Only lrm, lrm_tl or sc can be managed here" });
   }
 
   await user.save();

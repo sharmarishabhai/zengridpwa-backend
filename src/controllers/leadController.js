@@ -6,7 +6,7 @@ const Payment = require("../models/Payment");
 const GstInvoice = require("../models/GstInvoice");
 const User = require("../models/User");
 const { ROLES } = require("../utils/constants");
-const { LEAD_STATUSES, MEETING_STATUSES, SOURCES } = require("../utils/leadConstants");
+const { LEAD_STATUSES, LRM_LEAD_STATUSES, MEETING_STATUSES, SOURCES } = require("../utils/leadConstants");
 const { logAudit } = require("../utils/audit");
 
 function toLeadPayload(body) {
@@ -21,11 +21,13 @@ function toLeadPayload(body) {
     monthlyBill: Number(body.monthlyBill || body.Bill || 0),
     source: body.source || body.Source || SOURCES.WEBSITE,
     leadStatus: body.leadStatus || body.Status || LEAD_STATUSES.NEW,
+    lrmStatus: body.lrmStatus || body.LrmStatus || body.Quality || LRM_LEAD_STATUSES.NEW,
     followUpDate: body.followUpDate || body.FollowUpDate || "",
     assignedTo: body.assignedTo || body.AssignedTo || "",
     assignedBy: body.assignedBy || body.AssignedBy || "",
     assignedToUserId: body.assignedToUserId || body.AssignedToUserId || null,
     assignedByUserId: body.assignedByUserId || body.AssignedByUserId || null,
+    lrmAssignedToUserId: body.lrmAssignedToUserId || body.LrmAssignedToUserId || null,
     meetingDate: body.meetingDate || body.MeetingDate || "",
     meetingTime: body.meetingTime || body.MeetingTime || "",
     meetingStatus: body.meetingStatus || body.MeetingStatus || MEETING_STATUSES.ASSIGNED,
@@ -60,7 +62,8 @@ async function makeLeadId() {
 
 function canSeeLead(user, lead) {
   if (user.userType === ROLES.ADMIN) return true;
-  if (user.userType === ROLES.LRM) return String(lead.assignedByUserId || "") === String(user._id) || String(lead.createdByUserId || "") === String(user._id);
+  if (user.userType === ROLES.LRM) return String(lead.lrmAssignedToUserId || lead.assignedByUserId || "") === String(user._id) || String(lead.createdByUserId || "") === String(user._id);
+  if (user.userType === ROLES.LRM_TL) return String(lead.lrmAssignedToUserId || "") === String(user._id);
   if (user.userType === ROLES.SC) return String(lead.assignedToUserId || "") === String(user._id);
   return false;
 }
@@ -129,7 +132,11 @@ async function listLeads(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
   let filter = {};
   // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
-  if (req.user.userType === ROLES.LRM) filter = {};
+  if (req.user.userType === ROLES.LRM) filter = { lrmAssignedToUserId: req.user._id };
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ reportsToUserId: req.user._id }).select("_id").lean();
+    filter = { lrmAssignedToUserId: { $in: [req.user._id, ...team.map((u) => u._id)] } };
+  }
   if (req.user.userType === ROLES.SC) {
     const fullName = `${req.user.firstName} ${req.user.lastName}`.trim();
     filter = { $or: [{ assignedToUserId: req.user._id }, { assignedTo: new RegExp(`^${fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }] };
@@ -251,9 +258,10 @@ async function updateLeadStatus(req, res) {
   const lead = await Lead.findById(req.params.id);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   const before = lead.toJSON();
-  const { leadStatus, meetingStatus, followUpDate, note } = req.body;
+  const { leadStatus, lrmStatus, meetingStatus, followUpDate, note } = req.body;
   if (!canSeeLead(req.user, lead)) return res.status(403).json({ success: false, message: "Forbidden" });
   if (leadStatus) lead.leadStatus = leadStatus;
+  if (lrmStatus) lead.lrmStatus = lrmStatus;
   if (meetingStatus) lead.meetingStatus = meetingStatus;
   if (followUpDate !== undefined) lead.followUpDate = followUpDate;
   if (note !== undefined) lead.note = note;
@@ -302,6 +310,8 @@ async function bulkImportLeads(req, res) {
   if (!leads.length) return res.status(400).json({ success: false, message: "leads array is required" });
 
   const normalized = leads.map((item) => toLeadPayload(item));
+  const teamLead = await User.findOne({ userType: ROLES.LRM_TL, status: "active" }).sort({ createdAt: 1 });
+  if (!teamLead) return res.status(400).json({ success: false, message: "Create an active LRM Team Lead before importing leads" });
   const phones = normalized.map((l) => l.phone).filter(Boolean);
   const existing = await Lead.find({ phone: { $in: phones } }).select("phone");
   const existingSet = new Set(existing.map((x) => x.phone));
@@ -315,6 +325,8 @@ async function bulkImportLeads(req, res) {
       createdByRole: req.user.userType,
       createdByUserId: req.user._id,
       updatedByUserId: req.user._id,
+      lrmAssignedToUserId: l.lrmAssignedToUserId || teamLead._id,
+      lrmAssignedByUserId: req.user._id,
       leadId: `ZN${Math.floor(100000 + Math.random() * 900000)}`,
     })),
     { ordered: false }
@@ -327,6 +339,16 @@ async function bulkImportLeads(req, res) {
     duplicates,
     leads: created,
   });
+}
+
+async function assignLrmLeads(req, res) {
+  const { leadIds, lrmUserId } = req.body;
+  if (!Array.isArray(leadIds) || !leadIds.length || !lrmUserId) return res.status(400).json({ success: false, message: "leadIds and lrmUserId are required" });
+  const assignee = await User.findById(lrmUserId);
+  if (!assignee || ![ROLES.LRM, ROLES.LRM_TL].includes(assignee.userType)) return res.status(400).json({ success: false, message: "Select an LRM or LRM Team Lead" });
+  if (req.user.userType === ROLES.LRM_TL && assignee.userType === ROLES.LRM && String(assignee.reportsToUserId || "") !== String(req.user._id)) return res.status(403).json({ success: false, message: "You can assign only to LRMs in your team" });
+  const result = await Lead.updateMany({ _id: { $in: leadIds } }, { $set: { lrmAssignedToUserId: assignee._id, lrmAssignedByUserId: req.user._id, updatedByUserId: req.user._id } });
+  return res.json({ success: true, assigned: result.modifiedCount });
 }
 
 async function searchLeads(req, res) {
@@ -373,5 +395,6 @@ module.exports = {
   deleteLead,
   leadSummary,
   bulkImportLeads,
+  assignLrmLeads,
   searchLeads,
 };

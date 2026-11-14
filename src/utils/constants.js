@@ -1,6 +1,7 @@
 const ROLES = {
   ADMIN: "admin",
   LRM: "lrm",
+  LRM_TL: "lrm_tl",
   SC: "sc",
 };
 

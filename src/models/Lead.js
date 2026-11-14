@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { LEAD_STATUSES, MEETING_STATUSES, SOURCES } = require("../utils/leadConstants");
+const { LEAD_STATUSES, LRM_LEAD_STATUSES, MEETING_STATUSES, SOURCES } = require("../utils/leadConstants");
 
 const leadSchema = new mongoose.Schema(
   {
@@ -22,11 +22,14 @@ const leadSchema = new mongoose.Schema(
       enum: Object.values(LEAD_STATUSES),
       default: LEAD_STATUSES.NEW,
     },
+    lrmStatus: { type: String, enum: Object.values(LRM_LEAD_STATUSES), default: LRM_LEAD_STATUSES.NEW, index: true },
     followUpDate: { type: String, default: "" },
     assignedTo: { type: String, trim: true, default: "" },
     assignedBy: { type: String, trim: true, default: "" },
     assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     assignedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    lrmAssignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    lrmAssignedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     meetingDate: { type: String, default: "" },
     meetingTime: { type: String, default: "" },
     meetingStatus: {
