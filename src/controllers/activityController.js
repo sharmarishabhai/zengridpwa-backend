@@ -398,7 +398,7 @@ async function teamPerformance(req, res) {
     ? { $or: [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
     : {};
   const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : {};
-  const [leads, reports] = await Promise.all([
+  const [leads, reports, users] = await Promise.all([
     Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
     User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
