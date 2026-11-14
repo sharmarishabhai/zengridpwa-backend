@@ -140,6 +140,16 @@ async function listLeads(req, res) {
     const fullName = `${req.user.firstName} ${req.user.lastName}`.trim();
     filter = { $or: [{ assignedToUserId: req.user._id }, { assignedTo: new RegExp(`^${fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }] };
   }
+  if (req.user.userType === ROLES.LRM_TL) {
+    if (req.query.lrmStatus) filter.lrmStatus = req.query.lrmStatus;
+    if (req.query.lrmAssignedToUserId) filter.lrmAssignedToUserId = req.query.lrmAssignedToUserId;
+    if (req.query.assignment === "unassigned") filter.$or = [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }];
+    if (req.query.assignment === "assigned") filter.lrmAssignedToUserId = { $exists: true, $ne: null };
+    if (req.query.q) {
+      const regex = new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [{ customerName: regex }, { leadId: regex }, { phone: regex }, { email: regex }, { source: regex }];
+    }
+  }
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const [leads, total] = await Promise.all([
     Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
