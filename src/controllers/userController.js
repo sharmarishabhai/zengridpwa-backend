@@ -13,6 +13,7 @@ async function createTeamUser(req, res) {
 
   const user = await User.create({
     ...req.body,
+    reportsToUserId: userType === ROLES.LRM ? (req.body.reportsToUserId || null) : null,
     createdBy: req.user._id,
   });
 
@@ -85,6 +86,8 @@ async function updateUser(req, res) {
   if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC].includes(user.userType)) {
     return res.status(400).json({ success: false, message: "Only lrm, lrm_tl or sc can be managed here" });
   }
+
+  if (user.userType !== ROLES.LRM) user.reportsToUserId = null;
 
   await user.save();
   return res.json({ success: true, user });
