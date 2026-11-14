@@ -132,9 +132,15 @@ async function listLeads(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
   let filter = {};
   // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
-  if (req.user.userType === ROLES.LRM) filter = { lrmAssignedToUserId: req.user._id };
+  if (req.user.userType === ROLES.LRM) filter = { $or: [{ lrmAssignedToUserId: req.user._id }, { assignedByUserId: req.user._id }] };
   if (req.user.userType === ROLES.LRM_TL) {
+    const lrmUsers = await User.find({ userType: ROLES.LRM }).select("_id").lean();
+    const lrmIds = lrmUsers.map((user) => user._id);
     filter = {};
+    if (req.query.lrmAssignedToUserId) filter.$or = [{ lrmAssignedToUserId: req.query.lrmAssignedToUserId }, { assignedByUserId: req.query.lrmAssignedToUserId }];
+    if (req.query.assignment === "unassigned") filter.$and = [{ $or: [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }] }, { assignedByUserId: { $nin: lrmIds } }];
+    if (req.query.assignment === "assigned") filter.$or = [{ lrmAssignedToUserId: { $exists: true, $ne: null } }, { assignedByUserId: { $in: lrmIds } }];
+    if (req.query.assignment !== "unassigned" && req.query.assignment !== "assigned" && !req.query.lrmAssignedToUserId) delete filter.$and;
   }
   if (req.user.userType === ROLES.SC) {
     const fullName = `${req.user.firstName} ${req.user.lastName}`.trim();
@@ -142,12 +148,9 @@ async function listLeads(req, res) {
   }
   if (req.user.userType === ROLES.LRM_TL) {
     if (req.query.lrmStatus) filter.lrmStatus = req.query.lrmStatus;
-    if (req.query.lrmAssignedToUserId) filter.lrmAssignedToUserId = req.query.lrmAssignedToUserId;
-    if (req.query.assignment === "unassigned") filter.$or = [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }];
-    if (req.query.assignment === "assigned") filter.lrmAssignedToUserId = { $exists: true, $ne: null };
     if (req.query.q) {
       const regex = new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$or = [{ customerName: regex }, { leadId: regex }, { phone: regex }, { email: regex }, { source: regex }];
+      filter.$and = [...(filter.$and || []), { $or: [{ customerName: regex }, { leadId: regex }, { phone: regex }, { email: regex }, { source: regex }] }];
     }
   }
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
