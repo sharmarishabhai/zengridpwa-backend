@@ -6,6 +6,7 @@ const { LEAD_STATUSES } = require("../utils/leadConstants");
 function canSeeLead(user, lead) {
   if (user.userType === ROLES.ADMIN) return true;
   if (user.userType === ROLES.LRM) return String(lead.assignedByUserId || "") === String(user._id) || String(lead.createdByUserId || "") === String(user._id);
+  if (user.userType === ROLES.LRM_TL) return true;
   if (user.userType === ROLES.SC) return String(lead.assignedToUserId || "") === String(user._id);
   return false;
 }
@@ -50,6 +51,7 @@ async function listFollowUps(req, res) {
   if (req.user.userType === ROLES.LRM) {
     query.$or = [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }];
   }
+  if (req.user.userType === ROLES.LRM_TL) query.$or = [{}];
   if (req.user.userType === ROLES.SC) query.assignedToUserId = req.user._id;
   const followUps = await FollowUp.find(query).sort({ followUpDate: 1, createdAt: -1 });
   return res.json({ success: true, followUps });

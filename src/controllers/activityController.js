@@ -45,6 +45,7 @@ function roleQuery(user) {
   if (user.userType === ROLES.LRM) {
     return { $or: [{ assignedByUserId: user._id }, { createdByUserId: user._id }] };
   }
+  if (user.userType === ROLES.LRM_TL) return {};
   if (user.userType === ROLES.SC) return { assignedToUserId: user._id };
   return { _id: null };
 }
@@ -73,6 +74,7 @@ function canUseLead(user, lead) {
   if (user.userType === ROLES.LRM) {
     return String(lead.assignedByUserId || "") === String(user._id) || String(lead.createdByUserId || "") === String(user._id);
   }
+  if (user.userType === ROLES.LRM_TL) return true;
   if (user.userType === ROLES.SC) return String(lead.assignedToUserId || "") === String(user._id);
   return false;
 }

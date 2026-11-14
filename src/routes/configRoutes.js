@@ -12,7 +12,7 @@ const {
 
 const router = express.Router();
 
-router.get("/", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(listConfigItems));
+router.get("/", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL, ROLES.SC), asyncHandler(listConfigItems));
 router.get("/:resource", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(listResource));
 router.post("/:resource", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(createResource));
 router.patch("/:resource/:id", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(updateResource));

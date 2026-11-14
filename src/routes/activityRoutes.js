@@ -20,14 +20,14 @@ const {
 
 const router = express.Router();
 
-router.get("/summary", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(dashboardSummary));
+router.get("/summary", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL, ROLES.SC), asyncHandler(dashboardSummary));
 
-router.get("/performance", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(teamPerformance));
-router.post("/daily-reports", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(saveDailyReport));
-router.get("/daily-reports", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(listDailyReports));
+router.get("/performance", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL), asyncHandler(teamPerformance));
+router.post("/daily-reports", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL), asyncHandler(saveDailyReport));
+router.get("/daily-reports", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL), asyncHandler(listDailyReports));
 
-router.post("/meetings/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(addMeeting));
-router.get("/meetings", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(listMeetings));
+router.post("/meetings/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL, ROLES.SC), asyncHandler(addMeeting));
+router.get("/meetings", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL, ROLES.SC), asyncHandler(listMeetings));
 router.patch("/meetings/:leadId/done", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.SC), asyncHandler(updateMeetingDone));
 
 router.post("/quotes/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(addQuote));
