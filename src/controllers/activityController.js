@@ -391,19 +391,31 @@ async function saveDailyReport(req, res) {
 }
 
 async function listDailyReports(req, res) {
-  const reports = await DailyReport.find(req.user.userType === ROLES.ADMIN ? {} : { lrmUserId: req.user._id }).sort({ reportDate: -1 }).limit(120);
+  let filter = req.user.userType === ROLES.ADMIN ? {} : { lrmUserId: req.user._id };
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ reportsToUserId: req.user._id, userType: ROLES.LRM }).select("_id").lean();
+    filter = { lrmUserId: { $in: [req.user._id, ...team.map((u) => u._id)] } };
+    if (req.query.reportDate) filter.reportDate = req.query.reportDate;
+  }
+  const reports = await DailyReport.find(filter).sort({ reportDate: -1 }).limit(120);
   return res.json({ success: true, reports });
 }
 
 async function teamPerformance(req, res) {
+  let teamIds = [];
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ reportsToUserId: req.user._id, userType: ROLES.LRM }).select("_id").lean();
+    teamIds = [req.user._id, ...team.map((u) => u._id)];
+  }
   const leadFilter = req.user.userType === ROLES.LRM
     ? { $or: [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
+    : req.user.userType === ROLES.LRM_TL ? { $or: [{ lrmAssignedToUserId: { $in: teamIds } }, { assignedByUserId: { $in: teamIds } }] }
     : {};
-  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : {};
+  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds } } : {};
   const [leads, reports, users] = await Promise.all([
     Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
-    User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
+    User.find({ _id: req.user.userType === ROLES.LRM_TL ? { $in: teamIds } : { $exists: true }, userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
   ]);
   const scMap = new Map();
   const lrmMap = new Map();
