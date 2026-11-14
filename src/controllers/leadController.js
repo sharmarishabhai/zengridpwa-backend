@@ -309,8 +309,6 @@ async function bulkImportLeads(req, res) {
   if (!leads.length) return res.status(400).json({ success: false, message: "leads array is required" });
 
   const normalized = leads.map((item) => toLeadPayload(item));
-  const teamLead = await User.findOne({ userType: ROLES.LRM_TL, status: "active" }).sort({ createdAt: 1 });
-  if (!teamLead) return res.status(400).json({ success: false, message: "Create an active LRM Team Lead before importing leads" });
   const phones = normalized.map((l) => l.phone).filter(Boolean);
   const existing = await Lead.find({ phone: { $in: phones } }).select("phone");
   const existingSet = new Set(existing.map((x) => x.phone));
@@ -324,8 +322,8 @@ async function bulkImportLeads(req, res) {
       createdByRole: req.user.userType,
       createdByUserId: req.user._id,
       updatedByUserId: req.user._id,
-      lrmAssignedToUserId: l.lrmAssignedToUserId || teamLead._id,
-      lrmAssignedByUserId: req.user._id,
+      lrmAssignedToUserId: null,
+      lrmAssignedByUserId: null,
       leadId: `ZN${Math.floor(100000 + Math.random() * 900000)}`,
     })),
     { ordered: false }
