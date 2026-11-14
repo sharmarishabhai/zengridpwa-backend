@@ -138,7 +138,7 @@ async function listLeads(req, res) {
     const lrmIds = lrmUsers.map((user) => user._id);
     filter = {};
     if (req.query.lrmAssignedToUserId) filter.$or = [{ lrmAssignedToUserId: req.query.lrmAssignedToUserId }, { assignedByUserId: req.query.lrmAssignedToUserId }];
-    if (req.query.assignment === "unassigned") filter.$and = [{ $or: [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }] }, { assignedByUserId: { $in: [null, ""] } }];
+    if (req.query.assignment === "unassigned") filter.$and = [{ $or: [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }] }, { $or: [{ assignedByUserId: null }, { assignedByUserId: { $exists: false } }] }];
     if (req.query.assignment === "assigned") filter.$or = [{ lrmAssignedToUserId: { $exists: true, $ne: null } }, { assignedByUserId: { $in: lrmIds } }];
     if (req.query.assignment !== "unassigned" && req.query.assignment !== "assigned" && !req.query.lrmAssignedToUserId) delete filter.$and;
   }
