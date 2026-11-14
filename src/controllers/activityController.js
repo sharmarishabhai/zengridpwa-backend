@@ -11,6 +11,7 @@ const Inverter = require("../models/Inverter");
 const StructureType = require("../models/StructureType");
 const WiringOption = require("../models/WiringOption");
 const DailyReport = require("../models/DailyReport");
+const User = require("../models/User");
 const { ROLES } = require("../utils/constants");
 const { MEETING_STATUSES, LEAD_STATUSES } = require("../utils/leadConstants");
 
@@ -398,16 +399,18 @@ async function teamPerformance(req, res) {
     : {};
   const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : {};
   const [leads, reports] = await Promise.all([
-    Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId leadStatus meetingStatus meetingDate"),
+    Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
+    User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
   ]);
   const scMap = new Map();
   const lrmMap = new Map();
+  users.forEach((user) => lrmMap.set(String(user._id), { userId: user._id, role: user.userType, name: `${user.firstName} ${user.lastName}`.trim(), totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 }));
   leads.forEach((lead) => {
     const scKey = String(lead.assignedToUserId || lead.assignedTo || "unassigned");
-    const lrmKey = String(lead.assignedByUserId || lead.assignedBy || "unassigned");
+    const lrmKey = String(lead.lrmAssignedToUserId || lead.assignedByUserId || lead.assignedBy || "unassigned");
     if (!scMap.has(scKey)) scMap.set(scKey, { name: lead.assignedTo || "Unassigned", totalAssigned: 0, meetingsDone: 0, ordersClosed: 0 });
-    if (!lrmMap.has(lrmKey)) lrmMap.set(lrmKey, { userId: lead.assignedByUserId || null, name: lead.assignedBy || "Unassigned", totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
+    if (!lrmMap.has(lrmKey)) lrmMap.set(lrmKey, { userId: lead.lrmAssignedToUserId || lead.assignedByUserId || null, name: lead.assignedBy || "Unassigned", totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
     const sc = scMap.get(scKey);
     sc.totalAssigned += 1;
     if (lead.meetingStatus === MEETING_STATUSES.DONE) sc.meetingsDone += 1;
