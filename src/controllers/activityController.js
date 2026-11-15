@@ -344,7 +344,13 @@ async function dashboardSummary(req, res) {
   ]);
 
   const monthlyLeads = Object.fromEntries(monthlyLeadRows.map((row) => [row._id, row.count]));
-  const totalAssignedLeads = await Lead.countDocuments({ ...query, assignedByUserId: { $ne: null } });
+  let assignedQuery = { ...query, assignedByUserId: { $ne: null } };
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
+    const teamIds = team.map((member) => member._id);
+    assignedQuery = { $or: [{ lrmAssignedToUserId: { $in: teamIds } }, { assignedByUserId: { $in: teamIds } }] };
+  }
+  const totalAssignedLeads = await Lead.countDocuments(assignedQuery);
   const monthlyRevenue = Object.fromEntries(monthlyPaymentRows.filter((row) => row._id).map((row) => [row._id, row.amount]));
   const leadStatus = Object.fromEntries(leadStatusRows.map((row) => [row._id, row.count]));
   const totals = paymentTotals[0] || { revenueTotal: 0, pendingAmount: 0 };
