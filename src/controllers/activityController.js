@@ -344,6 +344,7 @@ async function dashboardSummary(req, res) {
   ]);
 
   const monthlyLeads = Object.fromEntries(monthlyLeadRows.map((row) => [row._id, row.count]));
+  const totalAssignedLeads = await Lead.countDocuments({ ...query, assignedByUserId: { $ne: null } });
   const monthlyRevenue = Object.fromEntries(monthlyPaymentRows.filter((row) => row._id).map((row) => [row._id, row.amount]));
   const leadStatus = Object.fromEntries(leadStatusRows.map((row) => [row._id, row.count]));
   const totals = paymentTotals[0] || { revenueTotal: 0, pendingAmount: 0 };
@@ -351,7 +352,7 @@ async function dashboardSummary(req, res) {
     success: true,
     summary: {
       totalLeads, totalFollowUps, followUpsToday, overdueFollowUps, meetingsTotal, meetingsDone,
-      totalQuotes, totalPayments, totalGstInvoices,
+      totalQuotes, totalPayments, totalGstInvoices, totalAssignedLeads,
       revenueTotal: totals.revenueTotal || 0,
       pendingAmount: totals.pendingAmount || 0,
       won,
@@ -364,11 +365,14 @@ async function dashboardSummary(req, res) {
 }
 
 async function saveDailyReport(req, res) {
-  if (![ROLES.ADMIN, ROLES.LRM].includes(req.user.userType)) {
+  if (![ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL].includes(req.user.userType)) {
     return res.status(403).json({ success: false, message: "Only LRM or admin can submit daily report" });
   }
   const targetUserId = req.body.lrmUserId || req.user._id;
-  if (req.user.userType !== ROLES.ADMIN && String(targetUserId) !== String(req.user._id)) {
+  if (req.user.userType === ROLES.LRM_TL) {
+    const target = await User.findById(targetUserId).select("userType reportsToUserId");
+    if (!target || (target._id.toString() !== req.user._id.toString() && !(target.userType === ROLES.LRM && String(target.reportsToUserId || "") === String(req.user._id)))) return res.status(403).json({ success: false, message: "You can submit reports only for your team" });
+  } else if (req.user.userType !== ROLES.ADMIN && String(targetUserId) !== String(req.user._id)) {
     return res.status(403).json({ success: false, message: "Forbidden" });
   }
   const reportDate = req.body.reportDate || new Date().toISOString().slice(0, 10);
@@ -391,19 +395,31 @@ async function saveDailyReport(req, res) {
 }
 
 async function listDailyReports(req, res) {
-  const reports = await DailyReport.find(req.user.userType === ROLES.ADMIN ? {} : { lrmUserId: req.user._id }).sort({ reportDate: -1 }).limit(120);
+  let filter = req.user.userType === ROLES.ADMIN ? {} : { lrmUserId: req.user._id };
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ reportsToUserId: req.user._id, userType: ROLES.LRM }).select("_id").lean();
+    filter = { lrmUserId: { $in: [req.user._id, ...team.map((u) => u._id)] } };
+    if (req.query.reportDate) filter.reportDate = req.query.reportDate;
+  }
+  const reports = await DailyReport.find(filter).sort({ reportDate: -1 }).limit(120);
   return res.json({ success: true, reports });
 }
 
 async function teamPerformance(req, res) {
+  let teamIds = [];
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ reportsToUserId: req.user._id, userType: ROLES.LRM }).select("_id").lean();
+    teamIds = [req.user._id, ...team.map((u) => u._id)];
+  }
   const leadFilter = req.user.userType === ROLES.LRM
     ? { $or: [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
+    : req.user.userType === ROLES.LRM_TL ? { $or: [{ assignedByUserId: { $in: teamIds } }, { lrmAssignedToUserId: { $in: teamIds } }] }
     : {};
-  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : {};
+  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds } } : {};
   const [leads, reports, users] = await Promise.all([
     Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
-    User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
+    User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
   ]);
   const scMap = new Map();
   const lrmMap = new Map();
