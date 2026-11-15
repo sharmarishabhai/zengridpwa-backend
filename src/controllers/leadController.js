@@ -134,12 +134,12 @@ async function listLeads(req, res) {
   // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
   if (req.user.userType === ROLES.LRM) filter = { $or: [{ lrmAssignedToUserId: req.user._id }, { assignedByUserId: req.user._id }] };
   if (req.user.userType === ROLES.LRM_TL) {
-    const lrmUsers = await User.find({ userType: ROLES.LRM }).select("_id").lean();
+    const lrmUsers = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
     const lrmIds = lrmUsers.map((user) => user._id);
     filter = {};
-    if (req.query.lrmAssignedToUserId) filter.$or = [{ lrmAssignedToUserId: req.query.lrmAssignedToUserId }, { assignedByUserId: req.query.lrmAssignedToUserId }];
+    if (req.query.lrmAssignedToUserId && lrmIds.some((id) => String(id) === String(req.query.lrmAssignedToUserId))) filter.$or = [{ lrmAssignedToUserId: req.query.lrmAssignedToUserId }, { assignedByUserId: req.query.lrmAssignedToUserId }];
     if (req.query.assignment === "unassigned") filter.$and = [{ $or: [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }] }, { $or: [{ assignedByUserId: null }, { assignedByUserId: { $exists: false } }] }];
-    if (req.query.assignment === "assigned") filter.$or = [{ lrmAssignedToUserId: { $exists: true, $ne: null } }, { assignedByUserId: { $in: lrmIds } }];
+    if (req.query.assignment === "assigned") filter.$or = [{ lrmAssignedToUserId: { $in: lrmIds } }, { assignedByUserId: { $in: lrmIds } }];
     if (req.query.assignment !== "unassigned" && req.query.assignment !== "assigned" && !req.query.lrmAssignedToUserId) delete filter.$and;
   }
   if (req.user.userType === ROLES.SC) {
