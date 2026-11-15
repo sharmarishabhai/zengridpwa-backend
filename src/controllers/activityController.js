@@ -322,33 +322,37 @@ async function listGstInvoices(req, res) {
 
 async function dashboardSummary(req, res) {
   const query = roleQuery(req.user);
+  let metricQuery = query;
+  if (req.user.userType === ROLES.LRM_TL) {
+    const team = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
+    const teamIds = team.map((member) => member._id);
+    metricQuery = { $or: [{ lrmAssignedToUserId: { $in: teamIds } }, { assignedByUserId: { $in: teamIds } }] };
+  }
   const FollowUp = require("../models/FollowUp");
   const today = new Date().toISOString().slice(0, 10);
 
   const [totalLeads, won, leadStatusRows, monthlyLeadRows, totalFollowUps, followUpsToday, overdueFollowUps, meetingsTotal, meetingsDone, totalQuotes, totalPayments, totalGstInvoices, paymentTotals, monthlyPaymentRows, recentPayments] = await Promise.all([
     Lead.countDocuments(query),
-    Lead.countDocuments({ ...query, leadStatus: LEAD_STATUSES.WON }),
-    Lead.aggregate([{ $match: query }, { $group: { _id: "$leadStatus", count: { $sum: 1 } } }]),
-    Lead.aggregate([{ $match: query }, { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
-    FollowUp.countDocuments(query),
-    FollowUp.countDocuments({ ...query, followUpDate: today }),
-    FollowUp.countDocuments({ ...query, followUpDate: { $ne: "", $lt: today } }),
-    Meeting.countDocuments(query),
-    Meeting.countDocuments({ ...query, meetingStatus: MEETING_STATUSES.DONE }),
-    Quote.countDocuments(query),
-    Payment.countDocuments(query),
-    GstInvoice.countDocuments(query),
-    Payment.aggregate([{ $match: query }, { $group: { _id: null, revenueTotal: { $sum: "$paidAmount" }, pendingAmount: { $sum: "$remainingAmount" } } }]),
-    Payment.aggregate([{ $match: query }, { $group: { _id: { $substrBytes: ["$paymentDate", 0, 7] }, amount: { $sum: "$paidAmount" } } }, { $sort: { _id: 1 } }]),
-    Payment.find(query).sort({ paymentDate: -1, createdAt: -1 }).limit(5).select("paymentNo leadName paidAmount remainingAmount paymentDate").lean(),
+    Lead.countDocuments({ ...metricQuery, leadStatus: LEAD_STATUSES.WON }),
+    Lead.aggregate([{ $match: metricQuery }, { $group: { _id: "$leadStatus", count: { $sum: 1 } } }]),
+    Lead.aggregate([{ $match: metricQuery }, { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    FollowUp.countDocuments(metricQuery),
+    FollowUp.countDocuments({ ...metricQuery, followUpDate: today }),
+    FollowUp.countDocuments({ ...metricQuery, followUpDate: { $ne: "", $lt: today } }),
+    Meeting.countDocuments(metricQuery),
+    Meeting.countDocuments({ ...metricQuery, meetingStatus: MEETING_STATUSES.DONE }),
+    Quote.countDocuments(metricQuery),
+    Payment.countDocuments(metricQuery),
+    GstInvoice.countDocuments(metricQuery),
+    Payment.aggregate([{ $match: metricQuery }, { $group: { _id: null, revenueTotal: { $sum: "$paidAmount" }, pendingAmount: { $sum: "$remainingAmount" } } }]),
+    Payment.aggregate([{ $match: metricQuery }, { $group: { _id: { $substrBytes: ["$paymentDate", 0, 7] }, amount: { $sum: "$paidAmount" } } }, { $sort: { _id: 1 } }]),
+    Payment.find(metricQuery).sort({ paymentDate: -1, createdAt: -1 }).limit(5).select("paymentNo leadName paidAmount remainingAmount paymentDate").lean(),
   ]);
 
   const monthlyLeads = Object.fromEntries(monthlyLeadRows.map((row) => [row._id, row.count]));
   let assignedQuery = { ...query, assignedByUserId: { $ne: null } };
   if (req.user.userType === ROLES.LRM_TL) {
-    const team = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
-    const teamIds = team.map((member) => member._id);
-    assignedQuery = { $or: [{ lrmAssignedToUserId: { $in: teamIds } }, { assignedByUserId: { $in: teamIds } }] };
+    assignedQuery = metricQuery;
   }
   const totalAssignedLeads = await Lead.countDocuments(assignedQuery);
   const monthlyRevenue = Object.fromEntries(monthlyPaymentRows.filter((row) => row._id).map((row) => [row._id, row.amount]));
