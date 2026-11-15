@@ -132,7 +132,7 @@ async function listLeads(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
   let filter = {};
   // LRMs can see the shared lead directory; mutation endpoints still enforce ownership.
-  if (req.user.userType === ROLES.LRM) filter = { $or: [{ lrmAssignedToUserId: req.user._id }, { assignedByUserId: req.user._id }] };
+  if (req.user.userType === ROLES.LRM) filter = { $or: [{ lrmAssignedToUserId: req.user._id }, { assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] };
   if (req.user.userType === ROLES.LRM_TL) {
     const lrmUsers = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
     const lrmIds = lrmUsers.map((user) => user._id);
