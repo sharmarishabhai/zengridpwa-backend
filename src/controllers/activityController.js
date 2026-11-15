@@ -397,7 +397,7 @@ async function saveDailyReport(req, res) {
 async function listDailyReports(req, res) {
   let filter = req.user.userType === ROLES.ADMIN ? {} : { lrmUserId: req.user._id };
   if (req.user.userType === ROLES.LRM_TL) {
-    const team = await User.find({ reportsToUserId: req.user._id, userType: ROLES.LRM }).select("_id").lean();
+    const team = await User.find({ $or: [{ reportsToUserId: req.user._id }, { createdBy: req.user._id }], userType: ROLES.LRM }).select("_id").lean();
     filter = { lrmUserId: { $in: [req.user._id, ...team.map((u) => u._id)] } };
     if (req.query.reportDate) filter.reportDate = req.query.reportDate;
   }
@@ -408,7 +408,7 @@ async function listDailyReports(req, res) {
 async function teamPerformance(req, res) {
   let teamIds = [];
   if (req.user.userType === ROLES.LRM_TL) {
-    const team = await User.find({ reportsToUserId: req.user._id, userType: ROLES.LRM }).select("_id").lean();
+    const team = await User.find({ $or: [{ reportsToUserId: req.user._id }, { createdBy: req.user._id }], userType: ROLES.LRM }).select("_id").lean();
     teamIds = [req.user._id, ...team.map((u) => u._id)];
   }
   const leadFilter = req.user.userType === ROLES.LRM
