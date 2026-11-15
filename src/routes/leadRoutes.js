@@ -22,7 +22,7 @@ const router = express.Router();
 router.post("/", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL), asyncHandler(createLead));
 router.get("/", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(listAllLeads));
 router.get("/summary", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(leadSummary));
-router.post("/import", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(bulkImportLeads));
+router.post("/import", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM_TL), asyncHandler(bulkImportLeads));
 router.patch("/lrm-assign", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM_TL), asyncHandler(assignLrmLeads));
 router.get("/search", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL, ROLES.SC), asyncHandler(searchLeads));
 router.get("/mine", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL, ROLES.SC), asyncHandler(listLeads));
