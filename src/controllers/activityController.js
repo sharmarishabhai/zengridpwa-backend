@@ -287,8 +287,9 @@ async function addGstInvoice(req, res) {
   const lead = await Lead.findById(req.params.leadId);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
   if (!canUseLead(req.user, lead)) return res.status(403).json({ success: false, message: "Forbidden" });
+  const requestedInvoiceNo = String(req.body.invoiceNo || "").trim();
   const invoice = await GstInvoice.create({
-    invoiceNo: await makeInvoiceNo(),
+    invoiceNo: requestedInvoiceNo || await makeInvoiceNo(),
     leadId: lead._id,
     leadName: lead.customerName,
     phone: lead.phone,
