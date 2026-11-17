@@ -97,7 +97,7 @@ async function updatePerformanceTarget(req, res) {
   const user = await User.findById(req.params.id);
   if (!user || ![ROLES.LRM, ROLES.LRM_TL].includes(user.userType)) return res.status(404).json({ success: false, message: "LRM not found" });
   if (req.user.userType === ROLES.LRM_TL && String(user.reportsToUserId || "") !== String(req.user._id) && String(user._id) !== String(req.user._id)) return res.status(403).json({ success: false, message: "Only your LRM team can be updated" });
-  const fields = ["totalCalls", "meetingsScheduled", "meetingsDone", "ordersClosed"];
+  const fields = ["meetingsScheduled", "meetingsDone", "ordersClosed"];
   user.performanceTargets = Object.fromEntries(fields.map((field) => [field, Math.max(0, Number(req.body[field] || 0))]));
   await user.save();
   return res.json({ success: true, targets: user.performanceTargets });
