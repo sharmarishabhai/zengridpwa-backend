@@ -432,9 +432,12 @@ async function teamPerformance(req, res) {
     ? { $or: [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
     : req.user.userType === ROLES.LRM_TL ? { $or: [{ assignedByUserId: { $in: teamIds } }, { lrmAssignedToUserId: { $in: teamIds } }] }
     : {};
+  const monthLeadFilter = req.user.userType === ROLES.LRM || req.user.userType === ROLES.LRM_TL
+    ? { $and: [leadFilter, { createdAt: { $gte: new Date(`${monthStart}T00:00:00.000Z`), $lt: new Date(`${monthEnd}T00:00:00.000Z`) } }] }
+    : leadFilter;
   const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id, reportDate: { $gte: monthStart, $lt: monthEnd } } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds }, reportDate: { $gte: monthStart, $lt: monthEnd } } : {};
   const [leads, reports, users] = await Promise.all([
-    Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
+    Lead.find(monthLeadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
     User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
   ]);
