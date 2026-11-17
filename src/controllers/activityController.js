@@ -439,7 +439,7 @@ async function teamPerformance(req, res) {
   const [leads, reports, users] = await Promise.all([
     Lead.find(monthLeadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
-    User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
+    User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : req.user.userType === ROLES.LRM ? { _id: req.user._id, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
   ]);
   const scMap = new Map();
   const lrmMap = new Map();
@@ -455,10 +455,8 @@ async function teamPerformance(req, res) {
     if (lead.leadStatus === LEAD_STATUSES.WON) sc.ordersClosed += 1;
     const lrm = lrmMap.get(lrmKey);
     if (lead.meetingDate) lrm.meetingsScheduled += 1;
-    if (req.user.userType !== ROLES.LRM && req.user.userType !== ROLES.LRM_TL) {
-      if (lead.meetingStatus === MEETING_STATUSES.DONE) lrm.meetingsDone += 1;
-      if (lead.leadStatus === LEAD_STATUSES.WON) lrm.ordersClosed += 1;
-    }
+    if (lead.meetingStatus === MEETING_STATUSES.DONE) lrm.meetingsDone += 1;
+    if (lead.leadStatus === LEAD_STATUSES.WON) lrm.ordersClosed += 1;
   });
   reports.forEach((report) => {
     const key = String(report.lrmUserId);
