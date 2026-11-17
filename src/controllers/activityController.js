@@ -443,18 +443,18 @@ async function teamPerformance(req, res) {
   const lrmMap = new Map();
   users.forEach((user) => lrmMap.set(String(user._id), { userId: user._id, role: user.userType, name: `${user.firstName} ${user.lastName}`.trim(), totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 }));
   leads.forEach((lead) => {
+    const meetingInMonth = String(lead.meetingDate || "").slice(0, 7) === requestedMonth;
+    const closedInMonth = lead.leadStatus === LEAD_STATUSES.WON && String(lead.updatedAt || "").slice(0, 7) === requestedMonth;
     const scKey = String(lead.assignedToUserId || lead.assignedTo || "unassigned");
     const lrmKey = String(lead.lrmAssignedToUserId || lead.assignedByUserId || lead.assignedBy || "unassigned");
     if (!scMap.has(scKey)) scMap.set(scKey, { name: lead.assignedTo || "Unassigned", totalAssigned: 0, meetingsDone: 0, ordersClosed: 0 });
     if (!lrmMap.has(lrmKey)) lrmMap.set(lrmKey, { userId: lead.lrmAssignedToUserId || lead.assignedByUserId || null, name: lead.assignedBy || "Unassigned", totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 });
     const sc = scMap.get(scKey);
-    sc.totalAssigned += 1;
-    if (lead.meetingStatus === MEETING_STATUSES.DONE) sc.meetingsDone += 1;
-    if (lead.leadStatus === LEAD_STATUSES.WON) sc.ordersClosed += 1;
+    if (meetingInMonth || closedInMonth) sc.totalAssigned += 1;
+    if (meetingInMonth && lead.meetingStatus === MEETING_STATUSES.DONE) sc.meetingsDone += 1;
+    if (closedInMonth) sc.ordersClosed += 1;
     const lrm = lrmMap.get(lrmKey);
-    if (lead.meetingDate) lrm.meetingsScheduled += 1;
-    const meetingInMonth = String(lead.meetingDate || "").slice(0, 7) === requestedMonth;
-    const closedInMonth = lead.leadStatus === LEAD_STATUSES.WON && String(lead.updatedAt || "").slice(0, 7) === requestedMonth;
+    if (meetingInMonth) lrm.meetingsScheduled += 1;
     if (meetingInMonth && lead.meetingStatus === MEETING_STATUSES.DONE) lrm.meetingsDone += 1;
     if (closedInMonth) lrm.ordersClosed += 1;
   });
