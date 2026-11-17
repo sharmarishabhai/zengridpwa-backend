@@ -444,7 +444,10 @@ async function teamPerformance(req, res) {
   users.forEach((user) => lrmMap.set(String(user._id), { userId: user._id, role: user.userType, name: `${user.firstName} ${user.lastName}`.trim(), totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 }));
   leads.forEach((lead) => {
     const meetingInMonth = String(lead.meetingDate || "").slice(0, 7) === requestedMonth;
-    const closedInMonth = lead.leadStatus === LEAD_STATUSES.WON && String(lead.updatedAt || "").slice(0, 7) === requestedMonth;
+    // A performance month's conversion belongs to leads whose meeting happened
+    // in that month. Using updatedAt made old/current lead edits disappear
+    // from the month in which the meeting actually converted.
+    const closedInMonth = meetingInMonth && lead.meetingStatus === MEETING_STATUSES.DONE && lead.leadStatus === LEAD_STATUSES.WON;
     const scKey = String(lead.assignedToUserId || lead.assignedTo || "unassigned");
     const lrmKey = String(lead.lrmAssignedToUserId || lead.assignedByUserId || lead.assignedBy || "unassigned");
     if (!scMap.has(scKey)) scMap.set(scKey, { name: lead.assignedTo || "Unassigned", totalAssigned: 0, meetingsDone: 0, ordersClosed: 0 });
@@ -470,8 +473,8 @@ async function teamPerformance(req, res) {
   });
   return res.json({
     success: true,
-    sc: Array.from(scMap.values()).map((r) => ({ ...r, conversionPercentage: r.totalAssigned ? Math.round((r.ordersClosed / r.totalAssigned) * 100) : 0 })),
-    lrm: Array.from(lrmMap.values()).map((r) => ({ ...r, period: requestedMonth, conversionPercentage: r.connectedCalls ? Math.round((r.ordersClosed / r.connectedCalls) * 100) : 0 })),
+    sc: Array.from(scMap.values()).map((r) => ({ ...r, conversionPercentage: r.meetingsDone ? Math.round((r.ordersClosed / r.meetingsDone) * 100) : 0 })),
+    lrm: Array.from(lrmMap.values()).map((r) => ({ ...r, period: requestedMonth, conversionPercentage: r.meetingsDone ? Math.round((r.ordersClosed / r.meetingsDone) * 100) : 0 })),
   });
 }
 
