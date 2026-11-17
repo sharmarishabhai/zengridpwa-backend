@@ -417,6 +417,10 @@ async function listDailyReports(req, res) {
 }
 
 async function teamPerformance(req, res) {
+  const now = new Date();
+  const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const monthEnd = `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, "0")}-01`;
   let teamIds = [];
   if (req.user.userType === ROLES.LRM_TL) {
     const team = await User.find({ $or: [{ reportsToUserId: req.user._id }, { createdBy: req.user._id }], userType: ROLES.LRM }).select("_id").lean();
@@ -426,7 +430,7 @@ async function teamPerformance(req, res) {
     ? { $or: [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
     : req.user.userType === ROLES.LRM_TL ? { $or: [{ assignedByUserId: { $in: teamIds } }, { lrmAssignedToUserId: { $in: teamIds } }] }
     : {};
-  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds } } : {};
+  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id, reportDate: { $gte: monthStart, $lt: monthEnd } } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds }, reportDate: { $gte: monthStart, $lt: monthEnd } } : {};
   const [leads, reports, users] = await Promise.all([
     Lead.find(leadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
@@ -462,7 +466,7 @@ async function teamPerformance(req, res) {
   return res.json({
     success: true,
     sc: Array.from(scMap.values()).map((r) => ({ ...r, conversionPercentage: r.totalAssigned ? Math.round((r.ordersClosed / r.totalAssigned) * 100) : 0 })),
-    lrm: Array.from(lrmMap.values()).map((r) => ({ ...r, conversionPercentage: r.connectedCalls ? Math.round((r.ordersClosed / r.connectedCalls) * 100) : 0 })),
+    lrm: Array.from(lrmMap.values()).map((r) => ({ ...r, period: "Current month", conversionPercentage: r.connectedCalls ? Math.round((r.ordersClosed / r.connectedCalls) * 100) : 0 })),
   });
 }
 
