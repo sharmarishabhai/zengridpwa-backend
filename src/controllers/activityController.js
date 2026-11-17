@@ -432,12 +432,10 @@ async function teamPerformance(req, res) {
     ? { $or: [{ assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
     : req.user.userType === ROLES.LRM_TL ? { $or: [{ assignedByUserId: { $in: teamIds } }, { lrmAssignedToUserId: { $in: teamIds } }] }
     : {};
-  const monthLeadFilter = req.user.userType === ROLES.LRM || req.user.userType === ROLES.LRM_TL
-    ? { $and: [leadFilter, { createdAt: { $gte: new Date(`${monthStart}T00:00:00.000Z`), $lt: new Date(`${monthEnd}T00:00:00.000Z`) } }] }
-    : leadFilter;
+  const monthLeadFilter = leadFilter;
   const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id, reportDate: { $gte: monthStart, $lt: monthEnd } } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds }, reportDate: { $gte: monthStart, $lt: monthEnd } } : {};
   const [leads, reports, users] = await Promise.all([
-    Lead.find(monthLeadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate"),
+    Lead.find(monthLeadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate updatedAt"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
     User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : req.user.userType === ROLES.LRM ? { _id: req.user._id, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
   ]);
@@ -455,8 +453,10 @@ async function teamPerformance(req, res) {
     if (lead.leadStatus === LEAD_STATUSES.WON) sc.ordersClosed += 1;
     const lrm = lrmMap.get(lrmKey);
     if (lead.meetingDate) lrm.meetingsScheduled += 1;
-    if (lead.meetingStatus === MEETING_STATUSES.DONE) lrm.meetingsDone += 1;
-    if (lead.leadStatus === LEAD_STATUSES.WON) lrm.ordersClosed += 1;
+    const meetingInMonth = String(lead.meetingDate || "").slice(0, 7) === requestedMonth;
+    const closedInMonth = lead.leadStatus === LEAD_STATUSES.WON && String(lead.updatedAt || "").slice(0, 7) === requestedMonth;
+    if (meetingInMonth && lead.meetingStatus === MEETING_STATUSES.DONE) lrm.meetingsDone += 1;
+    if (closedInMonth) lrm.ordersClosed += 1;
   });
   reports.forEach((report) => {
     const key = String(report.lrmUserId);
