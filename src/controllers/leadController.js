@@ -321,11 +321,17 @@ async function bulkImportLeads(req, res) {
   const leads = Array.isArray(req.body.leads) ? req.body.leads : [];
   if (!leads.length) return res.status(400).json({ success: false, message: "leads array is required" });
 
-  const normalized = leads.map((item) => toLeadPayload(item));
+  // Bulk import intentionally accepts only the two identity fields. All
+  // operational/customer details are completed later through lead editing.
+  const normalized = leads.map((item) => {
+    const payload = toLeadPayload(item);
+    return { customerName: String(payload.customerName || "").trim(), phone: String(payload.phone || "").trim() };
+  });
   const phones = normalized.map((l) => l.phone).filter(Boolean);
   const existing = await Lead.find({ phone: { $in: phones } }).select("phone");
   const existingSet = new Set(existing.map((x) => x.phone));
 
+  const invalid = normalized.filter((l) => !l.customerName || !l.phone);
   const toCreate = normalized.filter((l) => l.customerName && l.phone && !existingSet.has(l.phone));
   const duplicates = normalized.filter((l) => l.phone && existingSet.has(l.phone));
 
@@ -346,6 +352,7 @@ async function bulkImportLeads(req, res) {
     success: true,
     imported: created.length,
     skipped: duplicates.length,
+    invalid: invalid.length,
     duplicates,
     leads: created,
   });
