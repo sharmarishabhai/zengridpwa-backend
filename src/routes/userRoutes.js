@@ -6,6 +6,7 @@ const {
   listScs,
   getUserById,
   updateUser,
+  updatePerformanceTarget,
 } = require("../controllers/userController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 const { ROLES } = require("../utils/constants");
@@ -19,5 +20,6 @@ router.get("/lrms", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM_TL), asyncHan
 router.get("/scs", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM, ROLES.LRM_TL), asyncHandler(listScs));
 router.get("/:id", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM), asyncHandler(getUserById));
 router.patch("/:id", protect, authorizeRoles(ROLES.ADMIN), asyncHandler(updateUser));
+router.patch("/:id/performance-target", protect, authorizeRoles(ROLES.ADMIN, ROLES.LRM_TL), asyncHandler(updatePerformanceTarget));
 
 module.exports = router;

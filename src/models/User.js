@@ -17,6 +17,12 @@ const userSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reportsToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     lastLoginAt: { type: Date, default: null },
+    performanceTargets: {
+      totalCalls: { type: Number, default: 0 },
+      meetingsScheduled: { type: Number, default: 0 },
+      meetingsDone: { type: Number, default: 0 },
+      ordersClosed: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

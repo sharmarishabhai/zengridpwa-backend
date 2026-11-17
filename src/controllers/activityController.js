@@ -418,6 +418,7 @@ async function listDailyReports(req, res) {
 
 async function teamPerformance(req, res) {
   const now = new Date();
+  const allTime = String(req.query.period || "") === "all";
   const requestedMonth = /^\d{4}-\d{2}$/.test(String(req.query.month || "")) ? String(req.query.month) : `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const [requestedYear, requestedMonthNumber] = requestedMonth.split("-").map(Number);
   const monthStart = `${requestedYear}-${String(requestedMonthNumber).padStart(2, "0")}-01`;
@@ -433,17 +434,18 @@ async function teamPerformance(req, res) {
     : req.user.userType === ROLES.LRM_TL ? { $or: [{ assignedByUserId: { $in: teamIds } }, { lrmAssignedToUserId: { $in: teamIds } }] }
     : {};
   const monthLeadFilter = leadFilter;
-  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id, reportDate: { $gte: monthStart, $lt: monthEnd } } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds }, reportDate: { $gte: monthStart, $lt: monthEnd } } : {};
+  const reportFilter = req.user.userType === ROLES.LRM ? { lrmUserId: req.user._id } : req.user.userType === ROLES.LRM_TL ? { lrmUserId: { $in: teamIds } } : {};
+  if (!allTime) reportFilter.reportDate = { $gte: monthStart, $lt: monthEnd };
   const [leads, reports, users] = await Promise.all([
     Lead.find(monthLeadFilter).select("assignedTo assignedBy assignedToUserId assignedByUserId lrmAssignedToUserId leadStatus meetingStatus meetingDate updatedAt"),
     DailyReport.find(reportFilter).sort({ reportDate: -1 }),
-    User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : req.user.userType === ROLES.LRM ? { _id: req.user._id, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType").lean(),
+    User.find(req.user.userType === ROLES.LRM_TL ? { _id: { $in: teamIds }, status: "active" } : req.user.userType === ROLES.LRM ? { _id: req.user._id, status: "active" } : { userType: { $in: [ROLES.LRM, ROLES.LRM_TL] }, status: "active" }).select("firstName lastName userType performanceTargets").lean(),
   ]);
   const scMap = new Map();
   const lrmMap = new Map();
   users.forEach((user) => lrmMap.set(String(user._id), { userId: user._id, role: user.userType, name: `${user.firstName} ${user.lastName}`.trim(), totalCalls: 0, connectedCalls: 0, meetingsScheduled: 0, meetingsDone: 0, ordersClosed: 0 }));
   leads.forEach((lead) => {
-    const meetingInMonth = String(lead.meetingDate || "").slice(0, 7) === requestedMonth;
+    const meetingInMonth = allTime || String(lead.meetingDate || "").slice(0, 7) === requestedMonth;
     // A performance month's conversion belongs to leads whose meeting happened
     // in that month. Using updatedAt made old/current lead edits disappear
     // from the month in which the meeting actually converted.
@@ -474,7 +476,7 @@ async function teamPerformance(req, res) {
   return res.json({
     success: true,
     sc: Array.from(scMap.values()).map((r) => ({ ...r, conversionPercentage: r.meetingsDone ? Math.round((r.ordersClosed / r.meetingsDone) * 100) : 0 })),
-    lrm: Array.from(lrmMap.values()).map((r) => ({ ...r, period: requestedMonth, conversionPercentage: r.meetingsDone ? Math.round((r.ordersClosed / r.meetingsDone) * 100) : 0 })),
+    lrm: Array.from(lrmMap.values()).map((r) => ({ ...r, period: allTime ? "all" : requestedMonth, targets: users.find((u) => String(u._id) === String(r.userId))?.performanceTargets || {}, conversionPercentage: r.meetingsDone ? Math.round((r.ordersClosed / r.meetingsDone) * 100) : 0 })),
   });
 }
 
