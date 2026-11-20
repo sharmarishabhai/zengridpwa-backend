@@ -321,6 +321,17 @@ async function bulkImportLeads(req, res) {
   const leads = Array.isArray(req.body.leads) ? req.body.leads : [];
   if (!leads.length) return res.status(400).json({ success: false, message: "leads array is required" });
 
+  // Reject binary/XML content accidentally sent by an old importer. Valid
+  // names and phone numbers must not contain replacement or control chars.
+  const looksBinary = (value) => /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/.test(String(value || ""));
+  const binaryRow = leads.find((item) => looksBinary(item?.customerName) || looksBinary(item?.phone));
+  if (binaryRow) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid lead data detected. Please refresh the admin app and upload the original CSV/XLSX file again.",
+    });
+  }
+
   // Bulk import intentionally accepts only the two identity fields. All
   // operational/customer details are completed later through lead editing.
   const normalized = leads.map((item) => {
