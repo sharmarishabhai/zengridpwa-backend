@@ -9,6 +9,7 @@ const auditRoutes = require("./auditRoutes");
 const mediaRoutes = require("./mediaRoutes");
 const configRoutes = require("./configRoutes");
 const plantRoutes = require("./plantRoutes");
+const maintenanceRoutes = require("./maintenanceRoutes");
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use("/audits", auditRoutes);
 router.use("/media", mediaRoutes);
 router.use("/config", configRoutes);
 router.use("/plants", plantRoutes);
+router.use("/maintenance", maintenanceRoutes);
 
 module.exports = router;

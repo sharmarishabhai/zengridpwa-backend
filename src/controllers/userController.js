@@ -4,10 +4,10 @@ const { ROLES } = require("../utils/constants");
 async function createTeamUser(req, res) {
   const { userType } = req.body;
 
-  if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC].includes(userType)) {
+  if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC, ROLES.MAINTENANCE_CLEANING_PARTNER].includes(userType)) {
     return res.status(400).json({
       success: false,
-      message: "Only lrm, lrm_tl or sc can be created by admin",
+      message: "Unsupported team role",
     });
   }
 
@@ -21,7 +21,7 @@ async function createTeamUser(req, res) {
 }
 
 async function listUsers(req, res) {
-  const users = await User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL, ROLES.SC] } }).sort({ userType: 1, createdAt: -1 });
+  const users = await User.find({ userType: { $in: [ROLES.LRM, ROLES.LRM_TL, ROLES.SC, ROLES.MAINTENANCE_CLEANING_PARTNER] } }).sort({ userType: 1, createdAt: -1 });
   return res.json({ success: true, users });
 }
 
@@ -83,7 +83,7 @@ async function updateUser(req, res) {
     if (req.body[field] !== undefined) user[field] = req.body[field];
   });
 
-  if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC].includes(user.userType)) {
+  if (![ROLES.LRM, ROLES.LRM_TL, ROLES.SC, ROLES.MAINTENANCE_CLEANING_PARTNER].includes(user.userType)) {
     return res.status(400).json({ success: false, message: "Only lrm, lrm_tl or sc can be managed here" });
   }
 

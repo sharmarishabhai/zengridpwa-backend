@@ -3,6 +3,7 @@ const ROLES = {
   LRM: "lrm",
   LRM_TL: "lrm_tl",
   SC: "sc",
+  MAINTENANCE_CLEANING_PARTNER: "maintenance_cleaning_partner",
 };
 
 const STATUSES = {

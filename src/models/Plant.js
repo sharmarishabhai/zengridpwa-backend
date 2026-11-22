@@ -6,6 +6,8 @@ const plantSchema = new mongoose.Schema({
   longitude: { type: Number, required: true, min: -180, max: 180 },
   locationLabel: { type: String, trim: true, default: "" },
   installedAt: { type: Date, default: null },
+  maintenancePaused: { type: Boolean, default: false, index: true },
+  nextCleaningDate: { type: Date, default: null, index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: true });
 

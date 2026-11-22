@@ -26,6 +26,8 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.index({ userType: 1 }, { unique: true, partialFilterExpression: { userType: "maintenance_cleaning_partner" } });
+
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
