@@ -12,7 +12,9 @@ const populate = (q) => q.populate("leadId", "customerName phone address area lo
 async function partner() { return User.findOne({ userType: ROLES.MAINTENANCE_CLEANING_PARTNER, status: "active" }); }
 async function listPlants(req, res) {
   const page = Math.max(1, Number(req.query.page || 1)), limit = Math.min(100, Math.max(1, Number(req.query.limit || 25)));
-  const plants = await Plant.find({ installedAt: { $ne: null } }).populate("leadId", "customerName phone address area locality").sort({ installedAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  // In this application a Plant document is the installation/location record;
+  // installedAt is optional in the existing workflow and cannot be the gate.
+  const plants = await Plant.find({ leadId: { $ne: null } }).populate("leadId", "customerName phone address area locality").sort({ installedAt: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
   const ids = plants.map((p) => p._id); const tasks = await MaintenanceTask.find({ plantId: { $in: ids } }).sort({ scheduledDate: -1 }).lean();
   const result = plants.map((p) => { const ts = tasks.filter((t) => String(t.plantId) === String(p._id)); const latest = ts[0]; return { ...p, latestTask: latest || null, nextCleaningDate: latest?.status !== "Completed" ? latest?.scheduledDate : null }; });
   return res.json({ success: true, plants: result, page, limit });
@@ -25,7 +27,7 @@ async function listTasks(req, res) {
   return res.json({ success: true, tasks: tasks.map((t) => { const x = t.toObject(); if (x.status === "Scheduled" && new Date(x.scheduledDate) < now) x.status = "Overdue"; return x; }) });
 }
 async function assignTask(req, res) {
-  const plant = await Plant.findById(req.params.plantId).populate("leadId"); if (!plant || !plant.installedAt) return res.status(404).json({ success: false, message: "Installed plant not found" });
+  const plant = await Plant.findById(req.params.plantId).populate("leadId"); if (!plant || !plant.leadId) return res.status(404).json({ success: false, message: "Installed plant not found" });
   const p = await partner(); if (!p) return res.status(409).json({ success: false, message: "Create the maintenance partner first" });
   const scheduledDate = new Date(req.body.scheduledDate); if (Number.isNaN(scheduledDate.getTime())) return res.status(400).json({ success: false, message: "Valid scheduledDate is required" });
   const task = await MaintenanceTask.findOneAndUpdate({ plantId: plant._id, scheduledDate }, { $setOnInsert: { plantId: plant._id, leadId: plant.leadId._id, scheduledDate, assignedPartnerId: p._id, status: "Scheduled" } }, { upsert: true, new: true, setDefaultsOnInsert: true }); await Plant.updateOne({ _id: plant._id }, { nextCleaningDate: scheduledDate });
