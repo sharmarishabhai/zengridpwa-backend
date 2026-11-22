@@ -15,7 +15,7 @@ async function listPlants(req, res) {
   // In this application a Plant document is the installation/location record;
   // installedAt is optional in the existing workflow and cannot be the gate.
   const plants = await Plant.find({ leadId: { $ne: null } }).populate("leadId", "customerName phone address area locality").sort({ installedAt: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-  const ids = plants.map((p) => p._id); const tasks = await MaintenanceTask.find({ plantId: { $in: ids } }).sort({ scheduledDate: -1 }).lean();
+  const ids = plants.map((p) => p._id); const tasks = await MaintenanceTask.find({ plantId: { $in: ids } }).populate("assignedPartnerId", "firstName lastName email phoneNumber").sort({ scheduledDate: -1 }).lean();
   const result = plants.map((p) => { const ts = tasks.filter((t) => String(t.plantId) === String(p._id)); const latest = ts[0]; return { ...p, latestTask: latest || null, nextCleaningDate: latest?.status !== "Completed" ? latest?.scheduledDate : null }; });
   return res.json({ success: true, plants: result, page, limit });
 }
