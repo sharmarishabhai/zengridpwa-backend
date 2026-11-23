@@ -201,6 +201,14 @@ async function updateLead(req, res) {
   }
   const before = lead.toJSON();
   const payload = toLeadPayload(req.body);
+  // PATCH payloads are partial. Do not let fields omitted by a status/edit
+  // workflow become null and erase an existing LRM/SC assignment.
+  if (!Object.prototype.hasOwnProperty.call(req.body, "assignedByUserId") && !Object.prototype.hasOwnProperty.call(req.body, "AssignedByUserId")) {
+    delete payload.assignedByUserId;
+    delete payload.assignedBy;
+  }
+  if (!Object.prototype.hasOwnProperty.call(req.body, "lrmAssignedToUserId") && !Object.prototype.hasOwnProperty.call(req.body, "LrmAssignedToUserId")) delete payload.lrmAssignedToUserId;
+  if (!Object.prototype.hasOwnProperty.call(req.body, "assignedToUserId") && !Object.prototype.hasOwnProperty.call(req.body, "AssignedToUserId")) delete payload.assignedToUserId;
   if (payload.assignedByUserId) {
     const assignedByUser = await User.findById(payload.assignedByUserId).select("firstName lastName userType reportsToUserId");
     if (!assignedByUser || assignedByUser.userType !== ROLES.LRM) {
