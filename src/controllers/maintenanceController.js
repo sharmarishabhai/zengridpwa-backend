@@ -8,7 +8,7 @@ const MaintenancePhoto = require("../models/MaintenancePhoto");
 const { ROLES } = require("../utils/constants");
 const { logAudit } = require("../utils/audit");
 const addDays = (d, n) => new Date(new Date(d).getTime() + n * 86400000);
-const populate = (q) => q.populate("leadId", "customerName phone address area locality").populate("plantId", "installedAt locationLabel").populate("assignedPartnerId", "firstName lastName email");
+const populate = (q) => q.populate("leadId", "customerName phone address area locality").populate("plantId", "installedAt locationLabel latitude longitude maintenancePaused").populate("assignedPartnerId", "firstName lastName email");
 async function partner() { return User.findOne({ userType: ROLES.MAINTENANCE_CLEANING_PARTNER, status: "active" }); }
 async function listPlants(req, res) {
   const page = Math.max(1, Number(req.query.page || 1)), limit = Math.min(100, Math.max(1, Number(req.query.limit || 25)));
