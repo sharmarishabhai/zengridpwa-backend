@@ -201,6 +201,16 @@ async function updateLead(req, res) {
   }
   const before = lead.toJSON();
   const payload = toLeadPayload(req.body);
+  if (payload.assignedByUserId) {
+    const assignedByUser = await User.findById(payload.assignedByUserId).select("firstName lastName userType reportsToUserId");
+    if (!assignedByUser || assignedByUser.userType !== ROLES.LRM) {
+      return res.status(400).json({ success: false, message: "Assigned By must be an LRM user" });
+    }
+    if (req.user.userType === ROLES.LRM_TL && String(assignedByUser.reportsToUserId || "") !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: "You can assign only to LRMs in your team" });
+    }
+    payload.assignedBy = `${assignedByUser.firstName} ${assignedByUser.lastName}`.trim();
+  }
   Object.keys(payload).forEach((k) => {
     if (payload[k] !== undefined && payload[k] !== "") lead[k] = payload[k];
   });
