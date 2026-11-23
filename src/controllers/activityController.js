@@ -311,6 +311,18 @@ async function addGstInvoice(req, res) {
   return res.status(201).json({ success: true, invoice });
 }
 
+async function verifyGstNumber(req, res) {
+  const gstin = String(req.params.gstin || "").trim().toUpperCase();
+  if (!/^[0-9A-Z]{15}$/.test(gstin)) return res.status(400).json({ success: false, message: "Enter a valid 15-character GSTIN" });
+  const apiKey = process.env.GST_VERIFY_API_KEY;
+  if (!apiKey) return res.status(503).json({ success: false, message: "GST verification is not configured. Add GST_VERIFY_API_KEY on the backend." });
+  const response = await fetch(`${process.env.GST_VERIFY_API_URL || "https://gstin.cloud/api/v1/verify"}/${encodeURIComponent(gstin)}`, { headers: { "X-API-Key": apiKey, Accept: "application/json" } });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.success === false || !result.data) return res.status(422).json({ success: false, message: result.message || "GSTIN could not be verified" });
+  const data = result.data;
+  return res.json({ success: true, verified: { gstin, customerName: data.trade_name || data.legal_name || "", customerPAN: data.pan || "", address: data.address || "", status: data.status || "", legalName: data.legal_name || "", tradeName: data.trade_name || "", state: data.state || "" } });
+}
+
 async function listGstInvoices(req, res) {
   const { page, limit, skip } = paginationOptions(req.query);
   const filter = roleQuery(req.user);
@@ -489,6 +501,7 @@ module.exports = {
   addPayment,
   listPayments,
   addGstInvoice,
+  verifyGstNumber,
   listGstInvoices,
   dashboardSummary,
   saveDailyReport,

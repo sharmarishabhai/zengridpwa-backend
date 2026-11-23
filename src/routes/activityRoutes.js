@@ -11,6 +11,7 @@ const {
   addPayment,
   listPayments,
   addGstInvoice,
+  verifyGstNumber,
   listGstInvoices,
   dashboardSummary,
   saveDailyReport,
@@ -37,6 +38,7 @@ router.post("/payments/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC),
 router.get("/payments", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(listPayments));
 
 router.post("/gst/:leadId", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(addGstInvoice));
+router.get("/gst/verify/:gstin", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(verifyGstNumber));
 router.get("/gst", protect, authorizeRoles(ROLES.ADMIN, ROLES.SC), asyncHandler(listGstInvoices));
 
 module.exports = router;
