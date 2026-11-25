@@ -154,7 +154,7 @@ async function listLeads(req, res) {
     }
   }
   if (req.query.unassignedSc === "true") {
-    filter.$and = [...(filter.$and || []), { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] }];
+    filter.$and = [...(filter.$and || []), { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] }, { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] }];
     if (req.user.userType === ROLES.LRM_TL) {
       const team = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
       const teamIds = team.map((user) => user._id);
