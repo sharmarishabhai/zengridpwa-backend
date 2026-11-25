@@ -153,6 +153,14 @@ async function listLeads(req, res) {
       filter.$and = [...(filter.$and || []), { $or: [{ customerName: regex }, { leadId: regex }, { phone: regex }, { email: regex }, { source: regex }] }];
     }
   }
+  if (req.query.unassignedSc === "true") {
+    filter.$and = [...(filter.$and || []), { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] }];
+    if (req.user.userType === ROLES.LRM_TL) {
+      const team = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
+      const teamIds = team.map((user) => user._id);
+      filter.$and.push({ $or: [{ lrmAssignedToUserId: { $in: teamIds } }, { assignedByUserId: { $in: teamIds } }] });
+    }
+  }
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const [leads, total] = await Promise.all([
     Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
