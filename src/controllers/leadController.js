@@ -166,6 +166,16 @@ async function listLeads(req, res) {
     Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Lead.countDocuments(filter),
   ]);
+  const lrmIds = [...new Set(leads.map((lead) => String(lead.lrmAssignedToUserId || lead.assignedByUserId || "")).filter(Boolean))];
+  if (lrmIds.length) {
+    const lrmUsers = await User.find({ _id: { $in: lrmIds }, userType: ROLES.LRM }).select("firstName lastName").lean();
+    const lrmMap = new Map(lrmUsers.map((user) => [String(user._id), `${user.firstName} ${user.lastName}`.trim()]));
+    leads.forEach((lead) => {
+      const ownerId = String(lead.lrmAssignedToUserId || lead.assignedByUserId || "");
+      const ownerName = lrmMap.get(ownerId);
+      if (ownerName) { lead.assignedBy = ownerName; lead.assignedByUserId = lead.lrmAssignedToUserId || lead.assignedByUserId; }
+    });
+  }
   return res.json({ success: true, leads, pagination: paginationMeta(total, page, limit) });
 }
 
@@ -401,7 +411,7 @@ async function assignLrmLeads(req, res) {
   const assignee = await User.findById(lrmUserId);
   if (!assignee || ![ROLES.LRM, ROLES.LRM_TL].includes(assignee.userType)) return res.status(400).json({ success: false, message: "Select an LRM or LRM Team Lead" });
   if (req.user.userType === ROLES.LRM_TL && assignee.userType === ROLES.LRM && String(assignee.reportsToUserId || "") !== String(req.user._id)) return res.status(403).json({ success: false, message: "You can assign only to LRMs in your team" });
-  const result = await Lead.updateMany({ _id: { $in: leadIds } }, { $set: { lrmAssignedToUserId: assignee._id, lrmAssignedByUserId: req.user._id, updatedByUserId: req.user._id } });
+  const result = await Lead.updateMany({ _id: { $in: leadIds } }, { $set: { lrmAssignedToUserId: assignee._id, lrmAssignedByUserId: req.user._id, assignedByUserId: assignee._id, assignedBy: `${assignee.firstName} ${assignee.lastName}`.trim(), updatedByUserId: req.user._id } });
   return res.json({ success: true, assigned: result.modifiedCount });
 }
 
