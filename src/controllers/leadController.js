@@ -163,7 +163,7 @@ async function listLeads(req, res) {
     }
   }
   if (req.query.unassignedSc === "true") {
-    filter.$and = [...(filter.$and || []), { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] }, { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] }];
+    filter.$and = [...(filter.$and || []), { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] }, { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] }, { lrmStatus: LRM_LEAD_STATUSES.NEW }];
     if (req.user.userType === ROLES.LRM_TL) {
       const team = await User.find({ userType: ROLES.LRM, reportsToUserId: req.user._id }).select("_id").lean();
       const teamIds = team.map((user) => user._id);
@@ -204,6 +204,14 @@ function buildLeadFilter(query = {}) {
   Object.entries(exact).forEach(([field, key]) => { if (query[key]) filter[field] = query[key]; });
   if (query.hasMeeting === "true") filter.meetingDate = { $nin: [null, ""] };
   if (query.hasFollowUp === "true") filter.followUpDate = { $nin: [null, ""] };
+  if (query.unassignedSc === "true") {
+    filter.$and = [
+      ...(filter.$and || []),
+      { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] },
+      { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] },
+      { lrmStatus: LRM_LEAD_STATUSES.NEW },
+    ];
+  }
   if (query.meetingDateFrom || query.meetingDateTo) filter.meetingDate = { ...(filter.meetingDate || {}), ...(query.meetingDateFrom ? { $gte: query.meetingDateFrom } : {}), ...(query.meetingDateTo ? { $lte: query.meetingDateTo } : {}) };
   if (query.followUpDateFrom || query.followUpDateTo) filter.followUpDate = { ...(filter.followUpDate || {}), ...(query.followUpDateFrom ? { $gte: query.followUpDateFrom } : {}), ...(query.followUpDateTo ? { $lte: query.followUpDateTo } : {}) };
   if (query.q) {
