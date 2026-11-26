@@ -68,6 +68,15 @@ function canSeeLead(user, lead) {
   return false;
 }
 
+function canManageLeadAssignment(user, lead) {
+  if (user.userType === ROLES.ADMIN || user.userType === ROLES.LRM_TL) return true;
+  if (user.userType === ROLES.LRM) {
+    // Support both the current assignment fields and older imported leads.
+    return String(lead.lrmAssignedToUserId || lead.assignedByUserId || lead.createdByUserId || "") === String(user._id);
+  }
+  return false;
+}
+
 async function createLead(req, res) {
   const payload = toLeadPayload(req.body);
   if (!payload.customerName || !payload.phone) {
@@ -258,6 +267,9 @@ async function updateLead(req, res) {
 async function assignLead(req, res) {
   const lead = await Lead.findById(req.params.id);
   if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+  if (!canManageLeadAssignment(req.user, lead)) {
+    return res.status(403).json({ success: false, message: "You can assign only leads owned by your LRM account" });
+  }
   const before = lead.toJSON();
   const { assignedTo, assignedToUserId, meetingDate, meetingTime } = req.body;
   if (!assignedTo && !assignedToUserId) {
@@ -282,8 +294,15 @@ async function assignLead(req, res) {
       lead.assignedTo = assignedTo || lead.assignedTo;
     }
   }
-  lead.assignedBy = `${req.user.firstName} ${req.user.lastName}`.trim();
-  lead.assignedByUserId = req.user._id;
+  // assignedByUserId is the LRM owner used by older clients and reports.
+  // Do not replace it with the user who assigned the SC.
+  if (!lead.lrmAssignedToUserId) {
+    lead.lrmAssignedToUserId = lead.assignedByUserId || req.user._id;
+  }
+  if (!lead.assignedByUserId) lead.assignedByUserId = lead.lrmAssignedToUserId;
+  if (!lead.assignedBy) {
+    lead.assignedBy = `${req.user.firstName} ${req.user.lastName}`.trim();
+  }
   if (meetingDate !== undefined) lead.meetingDate = meetingDate;
   if (meetingTime !== undefined) lead.meetingTime = meetingTime;
   if (!lead.meetingStatus) lead.meetingStatus = MEETING_STATUSES.ASSIGNED;
@@ -423,7 +442,9 @@ async function searchLeads(req, res) {
     ? { $or: [{ customerName: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }] }
     : {
         $and: [
-          req.user.userType === ROLES.LRM ? { assignedByUserId: req.user._id } : { assignedToUserId: req.user._id },
+          req.user.userType === ROLES.LRM
+            ? { $or: [{ lrmAssignedToUserId: req.user._id }, { assignedByUserId: req.user._id }, { createdByUserId: req.user._id }] }
+            : { assignedToUserId: req.user._id },
           { $or: [{ customerName: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }] },
         ],
       };
