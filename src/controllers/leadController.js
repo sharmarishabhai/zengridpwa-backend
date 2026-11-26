@@ -201,7 +201,22 @@ async function listAllLeads(req, res) {
 function buildLeadFilter(query = {}) {
   const filter = {};
   const exact = { leadStatus: "status", source: "source", assignedToUserId: "assignedToUserId", assignedByUserId: "assignedByUserId", meetingStatus: "meetingStatus" };
-  Object.entries(exact).forEach(([field, key]) => { if (query[key]) filter[field] = query[key]; });
+  Object.entries(exact).forEach(([field, key]) => {
+    if (!query[key]) return;
+    if (field === "assignedByUserId") {
+      filter.$and = [
+        ...(filter.$and || []),
+        {
+          $or: [
+        { assignedByUserId: query[key] },
+        { lrmAssignedToUserId: query[key] },
+          ],
+        },
+      ];
+      return;
+    }
+    filter[field] = query[key];
+  });
   if (query.hasMeeting === "true") filter.meetingDate = { $nin: [null, ""] };
   if (query.hasFollowUp === "true") filter.followUpDate = { $nin: [null, ""] };
   if (query.unassignedSc === "true") {
