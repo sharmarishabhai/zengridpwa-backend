@@ -217,8 +217,16 @@ function buildLeadFilter(query = {}) {
     }
     filter[field] = query[key];
   });
+  if (query.lrmStatus) filter.lrmStatus = query.lrmStatus;
   if (query.hasMeeting === "true") filter.meetingDate = { $nin: [null, ""] };
   if (query.hasFollowUp === "true") filter.followUpDate = { $nin: [null, ""] };
+  if (query.meeting === "scheduled") {
+    filter.meetingDate = { $nin: [null, ""] };
+    filter.meetingStatus = { $ne: MEETING_STATUSES.DONE };
+  }
+  if (query.meeting === "done") {
+    filter.meetingStatus = MEETING_STATUSES.DONE;
+  }
   if (query.unassignedSc === "true") {
     filter.$and = [
       ...(filter.$and || []),
