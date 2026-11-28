@@ -174,6 +174,26 @@ async function listLeads(req, res) {
       filter.$and.push({ $or: [{ lrmAssignedToUserId: { $in: teamIds } }, { assignedByUserId: { $in: teamIds } }] });
     }
   }
+  // Fresh leads are role-specific:
+  // - LRM: owned by this LRM, not assigned to an SC, and untouched by LRM.
+  // - LRM TL: not assigned to any LRM in the TL's team.
+  if (req.query.fresh === "true") {
+    const noLrm = { $and: [
+      { $or: [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }] },
+      { $or: [{ assignedByUserId: null }, { assignedByUserId: { $exists: false } }] },
+    ] };
+    if (req.user.userType === ROLES.LRM_TL) {
+      filter.$and = [...(filter.$and || []), noLrm];
+    } else if (req.user.userType === ROLES.LRM) {
+      filter.$and = [...(filter.$and || []),
+        { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] },
+        { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] },
+        { lrmStatus: LRM_LEAD_STATUSES.NEW },
+      ];
+    } else if (req.user.userType === ROLES.ADMIN) {
+      filter.$and = [...(filter.$and || []), noLrm];
+    }
+  }
   if (req.query.meetingDate) filter.meetingDate = req.query.meetingDate;
   const [leads, total] = await Promise.all([
     Lead.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -237,6 +257,13 @@ function buildLeadFilter(query = {}) {
       { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] },
       { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] },
       { lrmStatus: LRM_LEAD_STATUSES.NEW },
+    ];
+  }
+  // Admin Fresh Leads are leads not yet assigned to an LRM/TL.
+  if (query.fresh === "true") {
+    filter.$and = [...(filter.$and || []),
+      { $or: [{ lrmAssignedToUserId: null }, { lrmAssignedToUserId: { $exists: false } }] },
+      { $or: [{ assignedByUserId: null }, { assignedByUserId: { $exists: false } }] },
     ];
   }
   if (query.meetingDateFrom || query.meetingDateTo) filter.meetingDate = { ...(filter.meetingDate || {}), ...(query.meetingDateFrom ? { $gte: query.meetingDateFrom } : {}), ...(query.meetingDateTo ? { $lte: query.meetingDateTo } : {}) };
