@@ -157,10 +157,14 @@ async function listLeads(req, res) {
   }
   if (req.user.userType === ROLES.LRM_TL) {
     if (req.query.lrmStatus) filter.lrmStatus = req.query.lrmStatus;
-    if (req.query.q) {
-      const regex = new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$and = [...(filter.$and || []), { $or: [{ customerName: regex }, { leadId: regex }, { phone: regex }, { email: regex }, { source: regex }] }];
-    }
+  }
+  if (req.query.q) {
+    const regex = new RegExp(String(req.query.q).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$and = [...(filter.$and || []), { $or: [
+      { customerName: regex }, { leadId: regex }, { phone: regex }, { whatsappNumber: regex },
+      { email: regex }, { address: regex }, { area: regex }, { locality: regex },
+      { source: regex }, { assignedTo: regex }, { assignedBy: regex }, { note: regex },
+    ] }];
   }
   if (req.query.unassignedSc === "true") {
     filter.$and = [...(filter.$and || []), { $or: [{ assignedToUserId: null }, { assignedToUserId: { $exists: false } }] }, { $or: [{ assignedTo: null }, { assignedTo: "" }, { assignedTo: { $exists: false } }] }, { lrmStatus: LRM_LEAD_STATUSES.NEW }];
@@ -239,7 +243,7 @@ function buildLeadFilter(query = {}) {
   if (query.followUpDateFrom || query.followUpDateTo) filter.followUpDate = { ...(filter.followUpDate || {}), ...(query.followUpDateFrom ? { $gte: query.followUpDateFrom } : {}), ...(query.followUpDateTo ? { $lte: query.followUpDateTo } : {}) };
   if (query.q) {
     const regex = new RegExp(String(query.q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ customerName: regex }, { leadId: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { area: regex }, { locality: regex }];
+    filter.$and = [...(filter.$and || []), { $or: [{ customerName: regex }, { leadId: regex }, { phone: regex }, { whatsappNumber: regex }, { email: regex }, { address: regex }, { area: regex }, { locality: regex }, { source: regex }, { assignedTo: regex }, { assignedBy: regex }, { note: regex }] }];
   }
   return filter;
 }
